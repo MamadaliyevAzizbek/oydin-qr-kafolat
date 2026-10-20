@@ -24,19 +24,24 @@ class ReceiptActivationService
     public function extractOrderNumbers(string $text): array
     {
         $raw = $text;
-        $text = str_replace(["\r", "\n", "\t"], ' ', $text);
+        // OCR baʼzan kirill/lotin aralashtiradi
+        $norm = str_replace(["\r", "\n", "\t"], ' ', $raw);
+        $norm = preg_replace('/\s+/u', ' ', $norm) ?? $norm;
         $priority = [];
         $found = [];
 
-        // 1) Eng ishonchli: Продажа: #010001090266
-        if (preg_match_all('/Продажа\s*[:\.]?\s*#?\s*(\d{9,14})/ui', $raw, $m)) {
-            foreach ($m[1] as $num) {
-                $priority[] = $num;
-            }
-        }
-        if (preg_match_all('/(?:Sale|Check|Chek|Order)\s*[:\.]?\s*#?\s*(\d{9,14})/ui', $raw, $m)) {
-            foreach ($m[1] as $num) {
-                $priority[] = $num;
+        // 1) Eng ishonchli: Продажа: #010001090266 (+ OCR xatoliklari)
+        $salePatterns = [
+            '/Продажа\s*[:\.]?\s*#?\s*(\d{9,14})/ui',
+            '/Пpoдaжa\s*[:\.]?\s*#?\s*(\d{9,14})/ui', // lotin o/a aralash
+            '/Prodazh?a\s*[:\.]?\s*#?\s*(\d{9,14})/ui',
+            '/(?:Sale|Check|Chek|Order|Чек)\s*[:\.]?\s*#?\s*(\d{9,14})/ui',
+        ];
+        foreach ($salePatterns as $re) {
+            if (preg_match_all($re, $raw, $m) || preg_match_all($re, $norm, $m)) {
+                foreach ($m[1] as $num) {
+                    $priority[] = $num;
+                }
             }
         }
         // #010001090266 alone
@@ -46,8 +51,14 @@ class ReceiptActivationService
             }
         }
 
-        // 2) Barcode / general digits (9–14)
-        if (preg_match_all('/\b(\d{9,14})\b/', $text, $m)) {
+        // 2) Barcode / general digits (9–14) — Billz odatda 12 xonali, 01… bilan
+        if (preg_match_all('/\b(\d{9,14})\b/', $norm, $m)) {
+            foreach ($m[1] as $num) {
+                $found[] = $num;
+            }
+        }
+        // Boʻshliqsiz: 010002001256 (OCR biriktirib yuborsa)
+        if (preg_match_all('/(?<!\d)(01\d{10})(?!\d)/', preg_replace('/\D+/', '', $raw) ?? '', $m)) {
             foreach ($m[1] as $num) {
                 $found[] = $num;
             }
@@ -55,17 +66,24 @@ class ReceiptActivationService
 
         $all = array_values(array_unique(array_filter(array_merge($priority, $found))));
 
-        // Prefer: explicit Продажа match, then numbers that exist in DB
+        // Prefer: Продажа / # match → Billz 01… → DB da bor
         usort($all, function ($a, $b) use ($priority) {
-            $pa = in_array($a, $priority, true) ? 0 : 1;
-            $pb = in_array($b, $priority, true) ? 0 : 1;
-            if ($pa !== $pb) {
-                return $pa <=> $pb;
-            }
-            $oa = Order::query()->where('order_number', $a)->exists() ? 0 : 1;
-            $ob = Order::query()->where('order_number', $b)->exists() ? 0 : 1;
+            $score = function (string $n) use ($priority): int {
+                $s = 0;
+                if (in_array($n, $priority, true)) {
+                    $s -= 100;
+                }
+                if (str_starts_with($n, '01') && strlen($n) === 12) {
+                    $s -= 50;
+                }
+                if (Order::query()->where('order_number', $n)->exists()) {
+                    $s -= 20;
+                }
 
-            return $oa <=> $ob;
+                return $s;
+            };
+
+            return $score($a) <=> $score($b);
         });
 
         return $all;
@@ -156,17 +174,24 @@ class ReceiptActivationService
             return '';
         }
 
-        foreach (['rus', 'eng'] as $lang) {
-            $text = $this->ocrImageWithLanguage($absolutePath, $bytes, $lang);
-            if ($text !== '') {
-                return $text;
+        // rus/eng × engine 2/1 — raqam topilganini afzal koʻramiz
+        $last = '';
+        foreach ([2, 1] as $engine) {
+            foreach (['rus', 'eng'] as $lang) {
+                $text = $this->ocrImageWithLanguage($absolutePath, $bytes, $lang, $engine);
+                if ($text !== '' && $this->extractOrderNumbers($text) !== []) {
+                    return $text;
+                }
+                if ($text !== '') {
+                    $last = $text;
+                }
             }
         }
 
-        return '';
+        return $last;
     }
 
-    protected function ocrImageWithLanguage(string $absolutePath, string $bytes, string $language): string
+    protected function ocrImageWithLanguage(string $absolutePath, string $bytes, string $language, int $engine = 2): string
     {
         try {
             $response = Http::timeout(90)
@@ -175,9 +200,10 @@ class ReceiptActivationService
                     'apikey' => config('services.ocrspace.key', 'helloworld'),
                     'language' => $language,
                     'isOverlayRequired' => 'false',
-                    'OCREngine' => '2',
+                    'OCREngine' => (string) $engine,
                     'scale' => 'true',
                     'detectOrientation' => 'true',
+                    'isTable' => 'true',
                 ]);
 
             $json = $response->json() ?? [];
