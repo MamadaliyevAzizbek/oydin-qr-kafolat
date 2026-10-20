@@ -2,6 +2,22 @@
 
 Laravel + MySQL panel: Billz 2.0 sinxron, Telegram bot, hisobotlar, xodimlar/rollar.
 
+## Git (qaytarish / restore)
+
+Loyihada git bor. Katta o‘zgarishdan oldin commit qiling — Cursor chat restore o‘rniga:
+
+```bash
+git status
+git add -A && git commit -m "Izoh: nima o‘zgardi"
+git log --oneline -10          # nuqtalar
+git checkout -- path/to/file   # bitta fayl
+git restore .                  # oxirgi commitga (saqlanmagan o‘zgarishlar)
+# yoki butun loyihani eski commitga:
+# git reset --hard <commit>
+```
+
+`.env`, `vendor/`, `node_modules/` gitga kirmaydi.
+
 ## Lokal ishga tushirish
 
 ```bash
