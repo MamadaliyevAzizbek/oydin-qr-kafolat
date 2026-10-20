@@ -165,11 +165,62 @@ class ReceiptActivationService
      * OCR receipt image via OCR.space (no local tesseract required).
      * Billz cheklari ruscha («Продажа») — avval rus, keyin eng.
      */
-    public function ocrImage(string $absolutePath): string
+    /**
+     * OCR.space free limiti ~1MB — katta Telegram fotoni kichraytiramiz.
+     */
+    public function prepareImageForOcr(string $absolutePath): string
     {
+        $size = @filesize($absolutePath) ?: 0;
+        if ($size > 0 && $size < 900_000 && function_exists('getimagesize')) {
+            return $absolutePath;
+        }
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagejpeg')) {
+            return $absolutePath;
+        }
+
         $bytes = @file_get_contents($absolutePath);
         if ($bytes === false || $bytes === '') {
-            Log::warning('OCR: empty image file', ['path' => $absolutePath]);
+            return $absolutePath;
+        }
+
+        try {
+            $img = @imagecreatefromstring($bytes);
+            if ($img === false) {
+                return $absolutePath;
+            }
+            $w = imagesx($img);
+            $h = imagesy($img);
+            $maxW = 1600;
+            if ($w > $maxW) {
+                $nw = $maxW;
+                $nh = (int) round($h * ($maxW / $w));
+                $resized = imagecreatetruecolor($nw, $nh);
+                imagecopyresampled($resized, $img, 0, 0, 0, 0, $nw, $nh, $w, $h);
+                imagedestroy($img);
+                $img = $resized;
+            }
+            $tmp = Storage::disk('local')->path('receipts/ocr-'.Str::uuid().'.jpg');
+            @mkdir(dirname($tmp), 0775, true);
+            imagejpeg($img, $tmp, 82);
+            imagedestroy($img);
+            if (is_file($tmp) && filesize($tmp) > 0) {
+                Log::info('OCR image prepared', ['from' => $size, 'to' => filesize($tmp)]);
+
+                return $tmp;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('OCR prepare failed: '.$e->getMessage());
+        }
+
+        return $absolutePath;
+    }
+
+    public function ocrImage(string $absolutePath): string
+    {
+        $path = $this->prepareImageForOcr($absolutePath);
+        $bytes = @file_get_contents($path);
+        if ($bytes === false || $bytes === '') {
+            Log::warning('OCR: empty image file', ['path' => $path]);
 
             return '';
         }
@@ -178,7 +229,7 @@ class ReceiptActivationService
         $last = '';
         foreach ([2, 1] as $engine) {
             foreach (['rus', 'eng'] as $lang) {
-                $text = $this->ocrImageWithLanguage($absolutePath, $bytes, $lang, $engine);
+                $text = $this->ocrImageWithLanguage($path, $bytes, $lang, $engine);
                 if ($text !== '' && $this->extractOrderNumbers($text) !== []) {
                     return $text;
                 }

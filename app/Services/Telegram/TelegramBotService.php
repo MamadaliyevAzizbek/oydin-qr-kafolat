@@ -927,8 +927,18 @@ class TelegramBotService
         }
 
         if (! $fileId) {
-            $photos = $message['photo'];
-            $best = end($photos);
+            $photos = $message['photo'] ?? [];
+            // OCR uchun ~800KB dan kichik eng yaxshi sifatni tanlash
+            $best = null;
+            foreach ($photos as $p) {
+                $fs = (int) ($p['file_size'] ?? 0);
+                if ($fs > 0 && $fs <= 900_000) {
+                    $best = $p;
+                }
+            }
+            if (! $best && $photos !== []) {
+                $best = end($photos);
+            }
             $fileId = $best['file_id'] ?? null;
         }
 
@@ -944,34 +954,50 @@ class TelegramBotService
         try {
             $path = $this->receipts->downloadTelegramFile($this, $fileId);
             if (! $path) {
-                throw new RuntimeException('Fayl yuklanmadi');
+                $botUser->update(['state' => 'awaiting_order_number']);
+                $this->sendMessage($botUser->telegram_id,
+                    "Rasm yuklanmadi.\nChek raqamini yozing (masalan <code>010002001256</code>).");
+
+                return;
             }
 
             $numbers = [];
             $source = '';
 
-            // 1) Pastdagi barcode (haqiqiy foto uchun eng oson)
-            $barcode = $this->receipts->decodeBarcode($path);
-            if ($barcode) {
-                $numbers = $this->receipts->extractOrderNumbers($barcode);
-                if ($numbers === [] && preg_match('/^\d{9,14}$/', $barcode)) {
-                    $numbers = [$barcode];
+            // 1) Pastdagi barcode
+            try {
+                $barcode = $this->receipts->decodeBarcode($path);
+                if ($barcode) {
+                    $numbers = $this->receipts->extractOrderNumbers($barcode);
+                    if ($numbers === [] && preg_match('/^\d{9,14}$/', $barcode)) {
+                        $numbers = [$barcode];
+                    }
+                    $source = 'barcode';
                 }
-                $source = 'barcode';
+            } catch (\Throwable $e) {
+                Log::warning('Barcode decode: '.$e->getMessage());
             }
 
             // 2) OCR — Billz «Продажа: #...»
             if ($numbers === []) {
-                $ocrText = $this->receipts->ocrImage($path);
-                $caption = (string) ($message['caption'] ?? '');
-                $numbers = $this->receipts->extractOrderNumbers($ocrText."\n".$caption);
-                $source = 'ocr';
+                try {
+                    $ocrText = $this->receipts->ocrImage($path);
+                    $caption = (string) ($message['caption'] ?? '');
+                    $numbers = $this->receipts->extractOrderNumbers($ocrText."\n".$caption);
+                    $source = 'ocr';
+                    Log::info('Receipt OCR', [
+                        'len' => mb_strlen($ocrText),
+                        'nums' => $numbers,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::warning('OCR step: '.$e->getMessage());
+                }
             }
 
             if ($numbers === []) {
                 $botUser->update(['state' => 'awaiting_order_number']);
                 $this->sendMessage($botUser->telegram_id,
-                    "Chekdan raqam topilmadi.\nIltimos, chek raqamini qo‘lda yozing (masalan <code>010001090266</code>).");
+                    "Chekdan raqam topilmadi.\nIltimos, chek raqamini qo‘lda yozing (masalan <code>010002001256</code>).");
 
                 return;
             }
@@ -984,10 +1010,13 @@ class TelegramBotService
                 }
             }
 
-            // Lokal bo‘sh / sync kechikkan — Billz dan tortib ko‘ramiz
             if (! $order) {
                 foreach ($numbers as $num) {
-                    $order = $this->receipts->findOrImportOrder($num);
+                    try {
+                        $order = $this->receipts->findOrImportOrder($num);
+                    } catch (\Throwable $e) {
+                        Log::warning('Billz import on receipt: '.$e->getMessage());
+                    }
                     if ($order) {
                         $source = $source.'+billz';
                         break;
@@ -1014,13 +1043,19 @@ class TelegramBotService
             Log::info('Receipt matched', ['source' => $source, 'order' => $order->order_number]);
             $this->finalizeOrderActivation($botUser, $order);
         } catch (\Throwable $e) {
-            Log::error('Receipt photo: '.$e->getMessage());
+            Log::error('Receipt photo: '.$e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
             $botUser->update(['state' => 'awaiting_order_number']);
             $this->sendMessage($botUser->telegram_id,
-                "Chekni avtomatik o‘qib bo‘lmadi.\nChek raqamini yozing (masalan <code>010001090266</code>).");
+                "Chekni avtomatik o‘qib bo‘lmadi.\nChek raqamini yozing (masalan <code>010002001256</code>).");
         } finally {
             if ($loadingId) {
-                $this->deleteMessage($botUser->telegram_id, (int) $loadingId);
+                try {
+                    $this->deleteMessage($botUser->telegram_id, (int) $loadingId);
+                } catch (\Throwable $e) {
+                }
             }
         }
     }
