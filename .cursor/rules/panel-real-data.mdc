@@ -1,0 +1,32 @@
+---
+description: Panel UI demosiz real data; KPI ↑/↓ saqlanadi; HTML o‘zgarmaydi
+alwaysApply: true
+---
+
+# Panel: real ma’lumot + KPI o‘sish/tushish
+
+## Qattiq qoidalar
+
+1. **HTML/UI matnini o‘zgartirma** — `panel.blade.php` dagi label, card sarlavha, tugma, ustun, bo‘lim tuzilmasi saqlanadi. Olib tashlama, “SMS”ni “Bot”ga almashtirma, cardlarni qisqartirma.
+2. **Faqat ma’lumot ulash** — demo massivlar (`DELTAS`, hardcode raqamlar) o‘rniga `/api/panel-boot` (yoki tegishli API) dan real qiymat.
+3. **KPI pastidagi ↑/↓ majburiy** — `tile()` dagi `delta` / `dUnit` / `upGood` / `cmp` ishlashi kerak. Oldingi shu uzunlikdagi davr bilan solishtirish (`homeDeltas`, `claim_stats.deltas`, `customer_stats.*_delta`, va h.k.). Demo `DELTAS={...}` ishlatma.
+4. **Ulanmaydigan joy** — taxminiy demo yozma; foydalanuvchiga aniq ayt: qaysi card/maydon, nima yetishmaydi, nima so‘rash kerak.
+5. **Bot vs Billz** — mijoz/takroriy/so‘rovnoma hisoblarida faqat bot orqali o‘tganlar; Billz faqat sotuv/chek bazasi uchun.
+
+## Tekshiruv checklist (har bo‘lim)
+
+- [ ] Home KPI — real + delta
+- [ ] Sotuv — real (delta bo‘lsa saqlash)
+- [ ] Mijozlar — real + delta
+- [ ] So‘rovnoma — jadval/grafik real
+- [ ] Brak — real + delta
+- [ ] Sifat — real
+- [ ] Sotuvchilar — real
+- [ ] Tizim — Telegram bot + Billz (SMS/Playmobile eskiz yo‘q); KPI delta `bot_stats.deltas`
+- [ ] Xabarnomalar — sozlama real saqlanish
+
+## Ta’qiqlangan
+
+- Demo toast `(namuna)` qoldirish (export/PDF/TG ishlashi kerak yoki aniq “ulanmagan”)
+- UI dan card/ustunni olib tashlash “kerak emas” deb
+- Hardcoded foizlar (3.4, 5.4, …) ni delta sifatida ko‘rsatish

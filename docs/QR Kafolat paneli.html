@@ -1,0 +1,794 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>QR Kafolat paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --page:#f3f4f6; --surface:#ffffff; --surface-2:#f7f8fa; --ink:#141820; --ink-2:#5a6170; --ink-3:#8b919c;
+  --line:#e4e7ec; --line-2:#d0d5dd;
+  --accent:#1b3f8f; --accent-ink:#ffffff;
+  --side:#0f1b33; --side-ink:#c3cce0; --side-dim:#7e8ba8; --side-active:#f2a900;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --o1:#1c5cab; --o2:#256abf; --o3:#2a78d6; --o4:#3987e5; --o5:#5598e7; --o6:#6da7ec;
+  --good:#006300; --good-bg:#e6f4e6; --warn:#a86a00; --warn-bg:#fff3d6; --crit:#c62828; --crit-bg:#fdeaea; --info-bg:#e8f0fc;
+  --grid:#e8eaee; --axis:#c9cdd4;
+  --radius:10px; --shadow:0 1px 2px rgba(16,24,40,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0f1115; --surface:#181b21; --surface-2:#1f232a; --ink:#f2f3f5; --ink-2:#b4bac5; --ink-3:#858c98;
+    --line:#2a2f38; --line-2:#3a404a;
+    --accent:#6b9cf0; --accent-ink:#0b1326;
+    --side:#0b1326; --side-ink:#b8c2d8; --side-dim:#6f7c99; --side-active:#f2a900;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --good:#3ccf3c; --good-bg:#12331a; --warn:#fab219; --warn-bg:#3a2c08; --crit:#f26b6b; --crit-bg:#3c1616; --info-bg:#172a4a;
+    --grid:#262b34; --axis:#3a404a;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0f1115; --surface:#181b21; --surface-2:#1f232a; --ink:#f2f3f5; --ink-2:#b4bac5; --ink-3:#858c98;
+  --line:#2a2f38; --line-2:#3a404a;
+  --accent:#6b9cf0; --accent-ink:#0b1326;
+  --side:#0b1326; --side-ink:#b8c2d8; --side-dim:#6f7c99; --side-active:#f2a900;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --good:#3ccf3c; --good-bg:#12331a; --warn:#fab219; --warn-bg:#3a2c08; --crit:#f26b6b; --crit-bg:#3c1616; --info-bg:#172a4a;
+  --grid:#262b34; --axis:#3a404a;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--page);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+.app{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100%}
+.side{background:var(--side);color:var(--side-ink);padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px));position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 6px 6px}
+.brand .mark{width:36px;height:36px;border-radius:9px;background:var(--side-active);display:grid;place-items:center;color:#0f1b33;flex:none}
+.brand b{display:block;color:#fff;font-weight:600;font-size:15px;line-height:1.15}
+.brand span{font-size:11.5px;color:var(--side-dim);letter-spacing:.02em}
+.nav{display:flex;flex-direction:column;gap:1px}
+.nav h6{margin:12px 8px 5px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--side-dim);font-weight:600}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--side-ink);padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13.5px}
+.nav button svg{width:16px;height:16px;flex:none;opacity:.85}
+.nav button:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav button[aria-current="page"]{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 3px 0 0 var(--side-active)}
+.nav .n{margin-left:auto;font-size:11px;background:var(--side-active);color:#0f1b33;padding:0 7px;border-radius:999px;font-weight:600;line-height:18px}
+.side .foot{margin-top:auto;font-size:11.5px;color:var(--side-dim);padding:0 8px;line-height:1.4}
+
+.main{padding:18px 22px 48px;min-width:0}
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between;margin-bottom:12px}
+.top h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+.top .sub{margin:3px 0 0;color:var(--ink-2);font-size:13px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.filters label{display:flex;flex-direction:column;gap:3px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.filters select{font-size:13px;font-weight:400;color:var(--ink);background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:6px 28px 6px 10px;min-width:150px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238b919c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;text-transform:none;letter-spacing:0}
+.btn{font-size:13px;font-weight:500;border-radius:8px;padding:7px 12px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1.3}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn svg{width:14px;height:14px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:12px;color:var(--ink-3);margin-bottom:16px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:500;background:var(--warn-bg);color:var(--warn)}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:0}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.kpis.k5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:1180px){.kpis,.kpis.k5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){.kpis,.kpis.k5{grid-template-columns:1fr}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px 16px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto auto;gap:2px 10px;box-shadow:var(--shadow);min-width:0}
+.tile .lbl{grid-column:1/-1;font-size:12.5px;color:var(--ink-2);line-height:1.3}
+.tile .val{grid-row:2;grid-column:1;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.15;white-space:nowrap}
+.tile .val small{font-size:14px;font-weight:500;color:var(--ink-3);margin-left:3px;letter-spacing:0}
+.tile .spark{grid-row:2/4;grid-column:2;align-self:end;width:72px;height:32px}
+.tile .foot{grid-row:3;grid-column:1;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3);min-height:18px}
+.delta{font-weight:500;color:var(--ink-2);white-space:nowrap}
+.delta.good{color:var(--good)} .delta.bad{color:var(--crit)}
+
+.grid{display:grid;gap:12px;margin-bottom:14px}
+.grid.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid.c21{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+@media(max-width:1000px){.grid.c2,.grid.c3,.grid.c21{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px 12px;box-shadow:var(--shadow);min-width:0}
+.card h3{margin:0;font-size:14px;font-weight:600}
+.card .hd{display:flex;justify-content:space-between;gap:8px 14px;align-items:baseline;margin-bottom:10px;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--ink-3)}
+.card p{margin:8px 0 0;font-size:13px;color:var(--ink-2)}
+
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2);margin-bottom:6px}
+.legend i,.sw-i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--page);font-size:12px;padding:6px 9px;border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.18);white-space:nowrap;z-index:5;transform:translate(-50%,calc(-100% - 10px));line-height:1.4}
+.tip b{font-weight:600}
+.tip .r{display:flex;gap:12px;justify-content:space-between}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:bottom;line-height:1.25}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle;min-width:80px}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl td b{white-space:nowrap}
+.tbl tr.click{cursor:pointer}
+.tbl tr.click:hover td{background:var(--surface-2)}
+.tbl td small{color:var(--ink-3);display:block;font-size:11.5px;line-height:1.3}
+.tbl td.wrap{white-space:normal;min-width:180px}
+.ibar{display:inline-flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.ibar b{width:72px;height:6px;border-radius:3px;background:var(--line);display:block;flex:none;overflow:hidden}
+.ibar b i{display:block;height:100%;background:var(--s1);border-radius:3px}
+.ibar.low b i{background:var(--crit)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px 2px 7px;border-radius:999px;font-size:11.5px;font-weight:500;white-space:nowrap;background:var(--surface-2);border:1px solid var(--line);color:var(--ink)}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
+.pill.new i{background:var(--s1)} .pill.review i{background:var(--warn)} .pill.approved i{background:var(--accent)} .pill.replaced i{background:var(--good)} .pill.rejected i{background:var(--ink-3)}
+.pill.crit{background:var(--crit-bg);border-color:transparent;color:var(--crit)} .pill.crit i{background:var(--crit)}
+.pill.ok{background:var(--good-bg);border-color:transparent;color:var(--good)} .pill.ok i{background:var(--good)}
+.pill.warn{background:var(--warn-bg);border-color:transparent;color:var(--warn)} .pill.warn i{background:var(--warn)}
+.up{color:var(--crit)} .down{color:var(--good)} .flat{color:var(--ink-3)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);cursor:pointer;line-height:1.3}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--page);border-color:var(--ink)}
+.chip .n{margin-left:6px;opacity:.75;font-variant-numeric:tabular-nums}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);padding:6px 10px;min-width:220px}
+.search input{border:0;background:none;outline:none;flex:1;font-size:13px;min-width:0}
+.search svg{width:14px;height:14px;color:var(--ink-3);flex:none}
+
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:12px;align-items:center;padding:0 10px 0 0;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);overflow:hidden}
+.item .stripe{align-self:stretch;background:var(--crit)}
+.item.warn .stripe{background:var(--warn)}
+.item .t{padding:8px 0;min-width:0}
+.item b{font-weight:500;display:block;white-space:normal}
+.item small{color:var(--ink-2);display:block;font-size:12px}
+.item .btn{padding:5px 10px;font-size:12px}
+.empty{padding:20px;text-align:center;color:var(--ink-3);font-size:13px}
+
+.stat{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+.stat dt{color:var(--ink-3);margin:0} .stat dd{margin:0;font-weight:500}
+.tl{list-style:none;margin:0;padding:0 0 0 14px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.tl li{position:relative;font-size:13px}
+.tl li::before{content:"";position:absolute;left:-20px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--line-2);border:2px solid var(--surface)}
+.tl li.done::before{background:var(--good)} .tl li.now::before{background:var(--warn)}
+.tl small{display:block;color:var(--ink-3);font-size:11.5px}
+.photo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.photo div{aspect-ratio:4/3;border-radius:8px;background:var(--surface-2);border:1px dashed var(--line-2);display:grid;place-items:center;font-size:11.5px;color:var(--ink-3);max-width:100%}
+
+.overlay{position:fixed;inset:0;background:rgba(10,14,24,.45);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(470px,100%);background:var(--surface);z-index:21;box-shadow:-8px 0 30px rgba(0,0,0,.22);padding:calc(18px + env(safe-area-inset-top,0px)) 20px calc(20px + env(safe-area-inset-bottom,0px));overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.drawer .dh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.drawer h2{margin:0;font-size:17px;font-weight:600}
+.drawer h4{margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.drawer .x{border:0;background:var(--surface-2);width:32px;height:32px;border-radius:8px;cursor:pointer;display:grid;place-items:center;flex:none}
+.drawer .actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--page);padding:9px 14px;border-radius:9px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:30;max-width:calc(100% - 32px);text-align:center}
+
+.sw{position:relative;width:36px;height:20px;appearance:none;-webkit-appearance:none;background:var(--line-2);border-radius:999px;cursor:pointer;transition:background .15s;margin:0;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sw:checked{background:var(--good)} .sw:checked::after{transform:translateX(16px)}
+.tbl input.txt{border:1px solid var(--line-2);border-radius:6px;padding:4px 8px;background:var(--surface);font-size:12.5px;width:120px}
+.row-off td:not(:first-child){opacity:.45}
+
+@media(max-width:880px){
+  .app{grid-template-columns:1fr}
+  .side{position:sticky;top:env(safe-area-inset-top,0px);height:auto;flex-direction:row;align-items:center;gap:8px;padding:8px 12px;z-index:10}
+  .side .foot{display:none}
+  .brand{padding:0 4px 0 0} .brand span{display:none} .brand b{font-size:13px;white-space:nowrap}
+  .nav{flex-direction:row;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none;min-width:0}
+  .nav::-webkit-scrollbar{display:none}
+  .nav h6{display:none}
+  .nav button{white-space:nowrap;width:auto;padding:6px 10px;font-size:12.5px}
+  .nav button[aria-current="page"]{box-shadow:inset 0 -2px 0 var(--side-active)}
+  .nav button svg{display:none}
+  .nav .n{margin-left:6px}
+  .main{padding:14px 16px 40px}
+  .filters select{min-width:120px}
+  .scroll{margin:0 -16px;padding:0 16px}
+}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M11.5 1 4 11h5l-.5 8L16 8h-5z"/></svg></div>
+      <div><b>QR Kafolat</b><span>Oydin Electric · 6 doʼkon</span></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Boʼlimlar"></nav>
+    <div class="foot">Maʼlumotlar paneli namunasi<br>Billz · Telegram bot · SMS</div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div><h1 id="pageTitle">Bosh sahifa</h1><p class="sub" id="pageSub"></p></div>
+      <div class="filters" id="filters">
+        <label>Davr<select id="fPeriod"><option value="7">Oxirgi 7 kun</option><option value="30" selected>Oxirgi 30 kun</option><option value="90">Oxirgi 90 kun</option></select></label>
+        <label>Doʼkon<select id="fStore"></select></label>
+        <label>Sotuvchi<select id="fSeller"></select></label>
+        <label>Kategoriya<select id="fCat"></select></label>
+        <button class="btn" id="btnExport" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8m0 0 3-3M8 10 5 7M3 12v2h10v-2"/></svg>Excel</button>
+      </div>
+    </header>
+    <div class="meta">
+      <span><span class="dot"></span>Oxirgi yangilanish: 25.09.2026, 09:41</span>
+      <span class="badge">Namuna ma'lumotlar</span>
+      <span id="scopeNote"></span>
+    </div>
+
+    <section class="page" id="p-home"></section>
+    <section class="page" id="p-sotuv" hidden></section>
+    <section class="page" id="p-mijozlar" hidden></section>
+    <section class="page" id="p-sorovnoma" hidden></section>
+    <section class="page" id="p-brak" hidden></section>
+    <section class="page" id="p-sifat" hidden></section>
+    <section class="page" id="p-sotuvchilar" hidden></section>
+    <section class="page" id="p-tizim" hidden></section>
+    <section class="page" id="p-xabarnomalar" hidden></section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Batafsil"></aside>
+<div class="toast" id="toast" hidden role="status"></div>
+<script>
+(function(){
+'use strict';
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const TODAY=new Date(2026,8,25);
+const DAY=86400000;
+const fmt=(n,d=0)=>Number(n).toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct=(n,d=1)=>fmt(n,d)+' %';
+const money=(mln)=>mln>=1000?fmt(mln/1000,2)+' mlrd soʼm':mln>=1?fmt(mln,0)+' mln soʼm':fmt(mln*1000,0)+' ming soʼm';
+const dm=(d,m,y=2026)=>new Date(y,m-1,d);
+const dstr=d=>String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0');
+const dfull=d=>dstr(d)+'.'+d.getFullYear();
+const daysBetween=(a,b)=>Math.round((b-a)/DAY);
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- Ma'lumotlar (namuna) ---------- */
+const STORES=[
+ {id:'chl',name:'Chilonzor',cheks:1840,summa:412,akt:71,inst:52,rep:34,brak:1.9,csat:4.6,resp:44.1,sat:92.0,open:9,close:4.2},
+ {id:'yun',name:'Yunusobod',cheks:1620,summa:388,akt:64,inst:41,rep:29,brak:2.4,csat:4.4,resp:42.3,sat:90.8,open:10,close:4.9},
+ {id:'ser',name:'Sergeli',cheks:1210,summa:265,akt:38,inst:22,rep:21,brak:3.1,csat:4.1,resp:35.6,sat:88.9,open:11,close:6.1},
+ {id:'olm',name:'Olmazor',cheks:1390,summa:301,akt:57,inst:36,rep:27,brak:2.2,csat:4.5,resp:41.0,sat:91.4,open:7,close:4.5},
+ {id:'yak',name:'Yakkasaroy',cheks:980,summa:236,akt:66,inst:48,rep:31,brak:1.6,csat:4.7,resp:45.8,sat:93.1,open:4,close:3.9},
+ {id:'mu',name:'Mirzo Ulugʼbek',cheks:1150,summa:258,akt:49,inst:30,rep:24,brak:2.8,csat:4.3,resp:39.2,sat:90.1,open:7,close:5.3},
+];
+const TOT={cheks:8190,summa:1860,akt:58.4,inst:38.6,rep:28.6,brak:2.3,resp:41.7,sat:91.2,open:48,close:4.8,kaf:21430};
+const storeName=id=>(STORES.find(s=>s.id===id)||{}).name||'';
+const PERIODS={
+ '7':{f:0.235,cmp:'oʼtgan 7 kunga nisbatan',weeks:6},
+ '30':{f:1,cmp:'oʼtgan oyga nisbatan',weeks:8},
+ '90':{f:2.9,cmp:'oʼtgan chorakka nisbatan',weeks:12},
+};
+const DELTAS={cheks:{7:3.4,30:6.2,90:9.8},akt:{7:1.2,30:4.1,90:7.6},kaf:{7:280,30:1120,90:3350},resp:{7:-0.6,30:-1.3,90:2.1},sat:{7:0.3,30:0.8,90:1.9},brak:{7:0.1,30:-0.2,90:-0.5},open:{7:4,30:9,90:2},close:{7:-0.2,30:-0.6,90:-1.1}};
+const CATS=[{id:'kabel',n:'Kabel'},{id:'yoritish',n:'Yoritish'},{id:'avtomat',n:'Avtomatlar'},{id:'rozetka',n:'Rozetkalar'},{id:'stab',n:'Stabilizatorlar'}];
+const PRODUCTS=[
+ {n:'LED panel 36W 600×600',cat:'yoritish',brand:'Lumex',sup:'Nur Import',sold:1260,req:71,brak:58,sat:84,cost:6.9,tr:1},
+ {n:'Kabel VVG 3×2,5 (100 m)',cat:'kabel',brand:'Uzkabel',sup:'Uzkabel zavod',sold:3420,req:49,brak:41,sat:95,cost:12.3,tr:0},
+ {n:'Avtomat 16A C',cat:'avtomat',brand:'Elektra',sup:'ElektroTrade',sold:2140,req:80,brak:62,sat:88,cost:3.9,tr:-1},
+ {n:'Rozetka ichki, oq',cat:'rozetka',brand:'Vesta',sup:'Vesta Home',sold:4380,req:66,brak:52,sat:93,cost:1.1,tr:0},
+ {n:'LED lampa 12W E27',cat:'yoritish',brand:'Lumex',sup:'Nur Import',sold:5910,req:281,brak:236,sat:86,cost:3.5,tr:1},
+ {n:'Stabilizator 5 kVt',cat:'stab',brand:'Volter',sup:'PowerLine',sold:310,req:17,brak:14,sat:81,cost:9.8,tr:1},
+ {n:'Udlinitel 5 m, 4 rozetka',cat:'rozetka',brand:'Vesta',sup:'Vesta Home',sold:1870,req:29,brak:22,sat:94,cost:0.9,tr:0},
+ {n:'UZO 40A 30mA',cat:'avtomat',brand:'Elektra',sup:'ElektroTrade',sold:690,req:24,brak:19,sat:87,cost:2.6,tr:-1},
+ {n:'Lyustra LED 72W',cat:'yoritish',brand:'Lumex',sup:'Nur Import',sold:420,req:13,brak:9,sat:90,cost:3.2,tr:0},
+ {n:'Kabel PVS 2×1,5 (100 m)',cat:'kabel',brand:'Uzkabel',sup:'Uzkabel zavod',sold:2260,req:22,brak:18,sat:96,cost:4.4,tr:-1},
+];
+const THRESHOLD=3;
+const SELLERS=[
+ {n:'Sardor Ahmedov',st:'chl',cheks:980,summa:224,akt:76,inst:58,rep:37,rad:6,csat:4.7},
+ {n:'Nilufar Karimova',st:'chl',cheks:860,summa:188,akt:66,inst:45,rep:31,rad:9,csat:4.5},
+ {n:'Jasur Toshmatov',st:'yun',cheks:870,summa:212,akt:69,inst:47,rep:32,rad:8,csat:4.5},
+ {n:'Dilnoza Rashidova',st:'yun',cheks:750,summa:176,akt:59,inst:35,rep:26,rad:12,csat:4.3},
+ {n:'Bekzod Qodirov',st:'ser',cheks:640,summa:141,akt:44,inst:27,rep:23,rad:17,csat:4.2},
+ {n:'Malika Yusupova',st:'ser',cheks:570,summa:124,akt:32,inst:16,rep:18,rad:21,csat:4.0},
+ {n:'Otabek Nazarov',st:'olm',cheks:720,summa:159,akt:61,inst:40,rep:29,rad:10,csat:4.6},
+ {n:'Kamola Saidova',st:'olm',cheks:670,summa:142,akt:53,inst:32,rep:25,rad:13,csat:4.4},
+ {n:'Shahzod Ergashev',st:'yak',cheks:520,summa:128,akt:70,inst:52,rep:33,rad:7,csat:4.8},
+ {n:'Gulnora Islomova',st:'yak',cheks:460,summa:108,akt:62,inst:44,rep:29,rad:9,csat:4.6},
+ {n:'Farrux Abdullayev',st:'mu',cheks:610,summa:139,akt:55,inst:34,rep:26,rad:11,csat:4.4},
+ {n:'Zilola Mirzayeva',st:'mu',cheks:540,summa:119,akt:43,inst:26,rep:22,rad:15,csat:4.2},
+];
+SELLERS.forEach(s=>{s.ball=Math.round(40*s.summa/224+25*s.akt/76+20*s.rep/37+15*s.csat/4.8);});
+const STATUS={new:'Yangi',review:'Koʼrib chiqilmoqda',approved:'Tasdiqlangan',replaced:'Almashtirildi',rejected:'Rad etilgan'};
+const CLAIMS=[
+ {id:'QK-1052',date:dm(24,9),cust:'Aziz Rahimov',ph:'+998 90 123 45 67',prod:'LED lampa 12W E27',brand:'Lumex',sn:'—',st:'ser',seller:'Bekzod Qodirov',chek:'B-48213',reason:'Ishlamaydi',text:'Uchta lampadan bittasi 3 kundan keyin yonmay qoldi.',status:'new',assignee:'',photos:2},
+ {id:'QK-1051',date:dm(24,9),cust:'Nodira Sattorova',ph:'+998 93 456 78 90',prod:'LED panel 36W 600×600',brand:'Lumex',sn:'LP36-22981',st:'yun',seller:'Jasur Toshmatov',chek:'B-48160',reason:'Miltillaydi / qizib ketadi',text:'Panel 20 daqiqadan keyin miltillay boshlaydi, korpus qiziydi.',status:'new',assignee:'',photos:1},
+ {id:'QK-1050',date:dm(23,9),cust:'Rustam Yoʼldoshev',ph:'+998 97 234 56 78',prod:'Stabilizator 5 kVt',brand:'Volter',sn:'VS5-01177',st:'chl',seller:'Sardor Ahmedov',chek:'B-47902',reason:'Ishlamaydi',text:'Yoqilganda displey yonadi, chiqishda kuchlanish yoʼq.',status:'review',assignee:'Umid Karimov',photos:3},
+ {id:'QK-1049',date:dm(22,9),cust:'Shahnoza Tursunova',ph:'+998 91 222 33 44',prod:'Avtomat 16A C',brand:'Elektra',sn:'—',st:'olm',seller:'Otabek Nazarov',chek:'B-47788',reason:'Oʼchib ketadi',text:'Yuklamasiz ham kuniga 2–3 marta oʼchadi.',status:'review',assignee:'Umid Karimov',photos:0},
+ {id:'QK-1047',date:dm(20,9),cust:'Botir Ismoilov',ph:'+998 94 567 89 01',prod:'LED lampa 12W E27',brand:'Lumex',sn:'—',st:'mu',seller:'Farrux Abdullayev',chek:'B-47310',reason:'Ishlamaydi',text:'Ikkita lampa umuman yonmadi.',status:'approved',assignee:'Dilshod Rahmatov',photos:1},
+ {id:'QK-1045',date:dm(18,9),cust:'Laylo Abdullayeva',ph:'+998 99 333 44 55',prod:'UZO 40A 30mA',brand:'Elektra',sn:'UZ40-08812',st:'yun',seller:'Dilnoza Rashidova',chek:'B-46955',reason:'Tez-tez oʼchiradi',text:'Kir yuvish mashinasi yoqilganda darrov oʼchiradi.',status:'review',assignee:'Umid Karimov',photos:0},
+ {id:'QK-1042',date:dm(15,9),cust:'Sherzod Mahmudov',ph:'+998 90 777 88 99',prod:'LED panel 36W 600×600',brand:'Lumex',sn:'LP36-22406',st:'ser',seller:'Malika Yusupova',chek:'B-46402',reason:'Miltillaydi / qizib ketadi',text:'2 hafta yaxshi ishladi, keyin miltillay boshladi.',status:'review',assignee:'Dilshod Rahmatov',photos:2},
+ {id:'QK-1040',date:dm(13,9),cust:'Kamila Ergasheva',ph:'+998 91 345 67 89',prod:'Rozetka ichki, oq',brand:'Vesta',sn:'—',st:'yak',seller:'Shahzod Ergashev',chek:'B-46011',reason:'Mexanik shikast',text:'Korpus sinib ketgan.',status:'rejected',assignee:'Umid Karimov',closed:dm(14,9),rej:'Mexanik shikast — kafolat shartiga kirmaydi',photos:2},
+ {id:'QK-1038',date:dm(11,9),cust:'Davron Qosimov',ph:'+998 95 654 32 10',prod:'Kabel VVG 3×2,5 (100 m)',brand:'Uzkabel',sn:'—',st:'chl',seller:'Nilufar Karimova',chek:'B-45790',reason:'Izolyatsiya nuqsoni',text:'Oʼramning oʼrtasida izolyatsiya yorilgan.',status:'replaced',assignee:'Dilshod Rahmatov',closed:dm(15,9),cost:0.62,photos:3},
+ {id:'QK-1036',date:dm(9,9),cust:'Muhayyo Nizomova',ph:'+998 93 111 00 11',prod:'Stabilizator 5 kVt',brand:'Volter',sn:'VS5-00934',st:'olm',seller:'Kamola Saidova',chek:'B-45402',reason:'Ishlamaydi',text:'Shovqin qiladi, keyin umuman oʼchib qoldi.',status:'approved',assignee:'Dilshod Rahmatov',photos:1},
+ {id:'QK-1034',date:dm(7,9),cust:'Alisher Karimov',ph:'+998 97 909 09 09',prod:'LED lampa 12W E27',brand:'Lumex',sn:'—',st:'yun',seller:'Jasur Toshmatov',chek:'B-45120',reason:'Ishlamaydi',text:'Bitta lampa yonmadi.',status:'replaced',assignee:'Umid Karimov',closed:dm(10,9),cost:0.048,photos:1},
+ {id:'QK-1031',date:dm(4,9),cust:'Zarina Xolmatova',ph:'+998 90 505 05 05',prod:'Lyustra LED 72W',brand:'Lumex',sn:'LY72-00311',st:'mu',seller:'Zilola Mirzayeva',chek:'B-44780',reason:'Pult ishlamaydi',text:'Pult batareyasini almashtirdik, baribir ishlamaydi.',status:'rejected',assignee:'Dilshod Rahmatov',closed:dm(8,9),rej:'Pult kafolat shartiga kirmaydi',photos:0},
+ {id:'QK-1029',date:dm(2,9),cust:'Jamshid Toirov',ph:'+998 94 242 42 42',prod:'Udlinitel 5 m, 4 rozetka',brand:'Vesta',sn:'—',st:'ser',seller:'Bekzod Qodirov',chek:'B-44510',reason:'Qizib ketadi',text:'Isitgich ulanganda vilka qiziydi.',status:'replaced',assignee:'Umid Karimov',closed:dm(4,9),cost:0.095,photos:1},
+ {id:'QK-1027',date:dm(31,8),cust:'Feruza Saidova',ph:'+998 99 818 18 18',prod:'Avtomat 16A C',brand:'Elektra',sn:'—',st:'chl',seller:'Sardor Ahmedov',chek:'B-44206',reason:'Oʼchib ketadi',text:'Kuniga bir necha marta oʼchadi.',status:'replaced',assignee:'Dilshod Rahmatov',closed:dm(5,9),cost:0.062,photos:0},
+];
+const isOpen=c=>['new','review','approved'].includes(c.status);
+const daysOpen=c=>daysBetween(c.date,c.closed||TODAY);
+const CUSTOMERS=[
+ {n:'Aziz Rahimov',ph:'+998 90 123 45 67',reg:'14.03.2026',x:4,sum:1.84,last:'24.09.2026',lastSt:'ser',kaf:3,seg:'Doimiy'},
+ {n:'Usta Jahongir Poʼlatov',ph:'+998 99 876 54 32',reg:'08.02.2026',x:23,sum:18.7,last:'23.09.2026',lastSt:'olm',kaf:14,seg:'Doimiy'},
+ {n:'Rustam Yoʼldoshev',ph:'+998 97 234 56 78',reg:'21.11.2025',x:7,sum:4.95,last:'23.09.2026',lastSt:'chl',kaf:5,seg:'Doimiy'},
+ {n:'Sanjar Mirzayev',ph:'+998 95 111 22 33',reg:'22.09.2026',x:1,sum:0.28,last:'22.09.2026',lastSt:'ser',kaf:1,seg:'Yangi'},
+ {n:'Botir Ismoilov',ph:'+998 94 567 89 01',reg:'11.01.2026',x:3,sum:1.12,last:'20.09.2026',lastSt:'mu',kaf:2,seg:'Doimiy'},
+ {n:'Kamila Ergasheva',ph:'+998 91 345 67 89',reg:'30.06.2026',x:2,sum:0.41,last:'13.09.2026',lastSt:'yak',kaf:2,seg:'Doimiy'},
+ {n:'Nodira Sattorova',ph:'+998 93 456 78 90',reg:'02.09.2026',x:1,sum:0.62,last:'02.09.2026',lastSt:'yun',kaf:1,seg:'Yangi'},
+ {n:'Dilshoda Yusupova',ph:'+998 90 765 43 21',reg:'19.02.2026',x:1,sum:0.35,last:'19.02.2026',lastSt:'chl',kaf:0,seg:'Uxlagan'},
+];
+const TOUCH=[
+ {t:'T1',when:'Xariddan 7 kun',q:'Oʼrnatildimi, ishlayaptimi',sent:2940,dlv:2871,ans:1402,good:1318,bad:84,claims:31,hrs:3.2},
+ {t:'T2',when:'Xariddan 30 kun',q:'Foydalanishda muammo bormi',sent:2610,dlv:2544,ans:998,good:899,bad:99,claims:47,hrs:5.1},
+ {t:'T3',when:'Xariddan 90 kun',q:'Uzoq muddatli sifat',sent:2180,dlv:2117,ans:741,good:652,bad:89,claims:38,hrs:6.4},
+ {t:'T4',when:'Kafolat tugashiga 30 kun',q:'Eslatma + oxirgi tekshiruv',sent:1320,dlv:1289,ans:402,good:371,bad:31,claims:9,hrs:8.0},
+];
+const WEEKS=['06.07','13.07','20.07','27.07','03.08','10.08','17.08','24.08','31.08','07.09','14.09','21.09'];
+const W_IN=[14,17,15,19,22,18,16,21,24,20,23,26];
+const W_OUT=[12,15,14,17,19,17,15,19,21,19,20,22];
+const W_APP=[8,9,8,11,12,10,9,12,13,11,13,14];
+const W_REJ=[3,4,3,4,5,4,3,5,5,4,5,6];
+const W_SAT={T1:[93.1,94.2,93.8,94.6,95.0,94.1,93.5,94.4,94.9,93.9,94.3,94.0],T2:[89.4,90.1,88.7,90.6,91.2,90.0,89.1,90.4,90.9,89.6,90.3,90.1],T3:[87.0,88.2,86.9,88.5,89.1,87.6,86.8,88.0,88.6,87.3,88.1,88.0]};
+const MONTHS=['Yan','Fev','Mar','Apr','May','Iyn','Iyl','Avg','Sen'];
+const M_NEW=[1240,1310,1520,1480,1690,1750,1820,1910,1960];
+const COMMENTS=[
+ {d:'24.09',c:'Aziz R.',p:'LED lampa 12W E27',t:'Lampalardan bittasi 3 kundan keyin oʼchdi, qolganlari ishlayapti.'},
+ {d:'20.09',c:'Usta Jahongir P.',p:'Rozetka ichki, oq',t:'Hammasi zoʼr, mijozlarimga ham shu doʼkonni tavsiya qildim.'},
+ {d:'15.09',c:'Sherzod M.',p:'LED panel 36W 600×600',t:'Panel 2 hafta yaxshi ishladi, keyin miltillay boshladi.'},
+ {d:'11.09',c:'Davron Q.',p:'Kabel VVG 3×2,5 (100 m)',t:'2,5 kv deb yozilgan, lekin koʼzga ingichka koʼrinadi, isib ketyapti.'},
+ {d:'09.09',c:'Muhayyo N.',p:'Stabilizator 5 kVt',t:'Stabilizator shovqin qilyapti, kechasi eshitiladi.'},
+];
+/* kunlik seriya (90 kun) */
+const R=rng(42);
+const DAILY=[];
+for(let i=89;i>=0;i--){const d=new Date(TODAY);d.setDate(d.getDate()-i);const dow=d.getDay();const w=dow===0?0.55:dow===6?1.15:1;const trend=1+(89-i)/89*0.12;const base=273*w*trend*(0.88+R()*0.24);const akt=base*(0.50+(89-i)/89*0.09+(R()-0.5)*0.08);DAILY.push({d,cheks:Math.round(base),akt:Math.round(akt)});}
+
+/* ---------- Holat ---------- */
+const state={page:'home',period:'30',store:'all',seller:'all',cat:'all',claimFilter:'all',qView:'product',search:''};
+const P=()=>PERIODS[state.period];
+const curStore=()=>state.store==='all'?null:STORES.find(s=>s.id===state.store);
+const share=()=>{const s=curStore();return s?s.cheks/TOT.cheks:1;};
+const scope=()=>{const s=curStore();return s?s:TOT;};
+
+/* ---------- Grafik yordamchilari ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function text(svg,x,y,str,style,anchor){const t=el('text',{x,y,'text-anchor':anchor||'start',style},svg);t.textContent=str;return t;}
+function niceMax(v){if(v<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;const m=n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10;return m*p;}
+function niceScale(max){let best=null;for(const n of [4,5]){const step=niceMax(max/n);const top=step*n;if(!best||top<best.top)best={top,n};}return best;}
+function roundTop(x,y,w,h,r){r=Math.min(r,h,w/2);if(h<=0)return '';return `M${x} ${y+h} V${y+r} A${r} ${r} 0 0 1 ${x+r} ${y} H${x+w-r} A${r} ${r} 0 0 1 ${x+w} ${y+r} V${y+h} Z`;}
+function roundRight(x,y,w,h,r){r=Math.min(r,w,h/2);if(w<=0)return '';return `M${x} ${y} H${x+w-r} A${r} ${r} 0 0 1 ${x+w} ${y+r} V${y+h-r} A${r} ${r} 0 0 1 ${x+w-r} ${y+h} H${x} Z`;}
+const LBL='font-size:11px;fill:var(--ink-3)';
+function mkTip(wrap){const t=document.createElement('div');t.className='tip';t.hidden=true;wrap.appendChild(t);return t;}
+function placeTip(tip,wrap,W,px,py){const sc=wrap.clientWidth/W||1;const x=Math.max(70,Math.min(wrap.clientWidth-70,px*sc));tip.style.left=x+'px';tip.style.top=(py*sc)+'px';tip.hidden=false;}
+function legend(host,series){if(series.length<2)return;const lg=document.createElement('div');lg.className='legend';lg.innerHTML=series.map(s=>`<span><i style="background:${s.color}"></i>${s.name}</span>`).join('');host.appendChild(lg);}
+
+function lineChart(host,o){
+  host.innerHTML='';
+  const W=Math.max(280,host.clientWidth||600),H=o.height||220;
+  const pad={l:46,r:o.endLabels?58:16,t:12,b:26};
+  const n=o.labels.length;const all=o.series.flatMap(s=>s.values);
+  let yMax=o.yMax,nT=4;const yMin=o.yMin??0;
+  if(yMax==null){const s=niceScale(Math.max(...all)*1.05);yMax=s.top;nT=s.n;}
+  const x=i=>pad.l+(n===1?0:(W-pad.l-pad.r)*i/(n-1));
+  const y=v=>pad.t+(H-pad.t-pad.b)*(1-(v-yMin)/(yMax-yMin));
+  legend(host,o.series);
+  const wrap=document.createElement('div');wrap.className='chart';host.appendChild(wrap);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,width:W,height:H,role:'img','aria-label':o.title||''},wrap);
+  const f=o.fmt||(v=>fmt(v));
+  for(let i=0;i<=nT;i++){const v=yMin+(yMax-yMin)*i/nT,yy=y(v);el('line',{x1:pad.l,x2:W-pad.r,y1:yy,y2:yy,style:'stroke:var(--grid);stroke-width:1'},svg);text(svg,pad.l-8,yy+4,f(v),LBL,'end');}
+  const step=Math.max(1,Math.ceil(n/(W<420?4:7)));
+  o.labels.forEach((l,i)=>{if(i%step===0&&i<=n-1-step/2||i===n-1)text(svg,x(i),H-8,l,LBL,'middle');});
+  o.series.forEach(s=>{
+    const pts=s.values.map((v,i)=>[x(i),y(v)]);
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    if(s.area)el('path',{d:d+` L${x(n-1).toFixed(1)} ${y(yMin)} L${x(0).toFixed(1)} ${y(yMin)} Z`,style:`fill:${s.color};opacity:.1`},svg);
+    el('path',{d,style:`fill:none;stroke:${s.color};stroke-width:2;stroke-linejoin:round;stroke-linecap:round`},svg);
+    const last=pts[n-1];
+    el('circle',{cx:last[0],cy:last[1],r:4,style:`fill:${s.color};stroke:var(--surface);stroke-width:2`},svg);
+    if(o.endLabels)text(svg,last[0]+8,last[1]+4,f(s.values[n-1]),'font-size:11px;fill:var(--ink-2);font-weight:500');
+  });
+  const cross=el('line',{x1:0,x2:0,y1:pad.t,y2:H-pad.b,style:'stroke:var(--axis);stroke-width:1;opacity:0'},svg);
+  const dots=o.series.map(s=>el('circle',{r:4.5,style:`fill:${s.color};stroke:var(--surface);stroke-width:2;opacity:0`},svg));
+  const hit=el('rect',{x:pad.l,y:pad.t,width:W-pad.l-pad.r,height:H-pad.t-pad.b,style:'fill:transparent'},svg);
+  const tip=mkTip(wrap);
+  const show=i=>{cross.style.opacity=1;cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));o.series.forEach((s,k)=>{dots[k].style.opacity=1;dots[k].setAttribute('cx',x(i));dots[k].setAttribute('cy',y(s.values[i]));});tip.innerHTML=`<b>${o.labels[i]}</b>`+o.series.map(s=>`<div class="r"><span><i style="background:${s.color}"></i>${s.name}</span><b>${f(s.values[i])}</b></div>`).join('');placeTip(tip,wrap,W,x(i),Math.min(...o.series.map(s=>y(s.values[i]))));};
+  const hide=()=>{cross.style.opacity=0;dots.forEach(d=>d.style.opacity=0);tip.hidden=true;};
+  const idx=clientX=>{const r=svg.getBoundingClientRect();const px=(clientX-r.left)*(W/r.width);return Math.max(0,Math.min(n-1,Math.round((px-pad.l)/((W-pad.l-pad.r)/Math.max(1,n-1)))));};
+  hit.addEventListener('mousemove',e=>show(idx(e.clientX)));
+  hit.addEventListener('mouseleave',hide);
+  hit.addEventListener('touchstart',e=>show(idx(e.touches[0].clientX)),{passive:true});
+  hit.addEventListener('touchmove',e=>show(idx(e.touches[0].clientX)),{passive:true});
+  hit.addEventListener('touchend',hide);
+}
+
+function columnChart(host,o){
+  host.innerHTML='';
+  const W=Math.max(280,host.clientWidth||600),H=o.height||220,pad={l:40,r:12,t:14,b:26};
+  const n=o.labels.length;const totals=o.labels.map((_,i)=>o.series.reduce((a,s)=>a+s.values[i],0));
+  let yMax=o.yMax,nT=4;if(yMax==null){const s=niceScale(Math.max(...totals,o.ref||0)*1.12);yMax=s.top;nT=s.n;}
+  const y=v=>pad.t+(H-pad.t-pad.b)*(1-v/yMax);
+  const band=(W-pad.l-pad.r)/n,bw=Math.min(24,band*0.62);
+  const f=o.fmt||(v=>fmt(v));
+  legend(host,o.series);
+  const wrap=document.createElement('div');wrap.className='chart';host.appendChild(wrap);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,width:W,height:H,role:'img','aria-label':o.title||''},wrap);
+  for(let i=0;i<=nT;i++){const v=yMax*i/nT,yy=y(v);el('line',{x1:pad.l,x2:W-pad.r,y1:yy,y2:yy,style:'stroke:var(--grid);stroke-width:1'},svg);text(svg,pad.l-8,yy+4,f(v),LBL,'end');}
+  const lstep=band<40?2:1;
+  o.labels.forEach((l,i)=>{if(i%lstep===0)text(svg,pad.l+band*i+band/2,H-8,l,LBL,'middle');});
+  o.labels.forEach((_,i)=>{
+    let cum=0;const x0=pad.l+band*i+(band-bw)/2;
+    const lastK=o.series.map((s,k)=>s.values[i]>0?k:-1).filter(k=>k>=0).pop();
+    o.series.forEach((s,k)=>{const v=s.values[i];if(!v)return;const y0=y(cum),y1=y(cum+v);const gap=k>0?2:0;const h=Math.max(0,(y0-y1)-gap);
+      if(k===lastK)el('path',{d:roundTop(x0,y1,bw,h,4),style:`fill:${s.color}`},svg);else el('rect',{x:x0,y:y1,width:bw,height:h,style:`fill:${s.color}`},svg);cum+=v;});
+    if(o.labelTop)text(svg,x0+bw/2,y(cum)-6,f(cum),'font-size:11px;fill:var(--ink-2);font-weight:500','middle');
+  });
+  if(o.ref){const yy=y(o.ref);el('line',{x1:pad.l,x2:W-pad.r,y1:yy,y2:yy,style:'stroke:var(--ink-3);stroke-width:1'},svg);text(svg,W-pad.r,yy-5,o.refLabel||'',"font-size:11px;fill:var(--ink-2);font-weight:500",'end');}
+  const tip=mkTip(wrap);
+  o.labels.forEach((l,i)=>{const r=el('rect',{x:pad.l+band*i,y:pad.t,width:band,height:H-pad.t-pad.b,style:'fill:transparent'},svg);
+    const show=()=>{tip.innerHTML=`<b>${o.fullLabels?o.fullLabels[i]:l}</b>`+o.series.map(s=>`<div class="r"><span><i style="background:${s.color}"></i>${s.name}</span><b>${f(s.values[i])}</b></div>`).join('')+(o.series.length>1?`<div class="r"><span>Jami</span><b>${f(totals[i])}</b></div>`:'');placeTip(tip,wrap,W,pad.l+band*i+band/2,y(totals[i]));};
+    r.addEventListener('mouseenter',show);r.addEventListener('mouseleave',()=>tip.hidden=true);r.addEventListener('touchstart',show,{passive:true});});
+}
+
+function barChartH(host,o){
+  host.innerHTML='';
+  const W=Math.max(280,host.clientWidth||600),rowH=o.rowH||30,n=o.items.length,th=o.thick||14;
+  const maxChars=Math.floor(Math.min(W*0.45,215)/6.6);
+  const lab=it=>it.label.length>maxChars?it.label.slice(0,maxChars-1)+'…':it.label;
+  const labelW=Math.min(W*0.45,215,Math.max(...o.items.map(it=>lab(it).length))*6.6+10);
+  const pad={l:labelW+8,r:o.valW||70,t:6,b:o.ref?20:6};const H=pad.t+rowH*n+pad.b;
+  const max=o.max??niceMax(Math.max(...o.items.map(i=>i.value),o.ref||0));
+  const x=v=>pad.l+(W-pad.l-pad.r)*v/max;
+  const f=o.fmt||(v=>fmt(v));
+  const wrap=document.createElement('div');wrap.className='chart';host.appendChild(wrap);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,width:W,height:H,role:'img','aria-label':o.title||''},wrap);
+  el('line',{x1:pad.l,x2:pad.l,y1:pad.t,y2:H-pad.b,style:'stroke:var(--axis);stroke-width:1'},svg);
+  o.items.forEach((it,i)=>{const cy=pad.t+rowH*i+rowH/2;
+    text(svg,pad.l-8,cy+4,lab(it),'font-size:12px;fill:var(--ink-2)','end');
+    el('path',{d:roundRight(pad.l,cy-th/2,x(it.value)-pad.l,th,4),style:`fill:${it.color||'var(--s1)'}`},svg);
+    text(svg,x(it.value)+8,cy+4,f(it.value)+(it.note?'  ':''),'font-size:12px;fill:var(--ink-2);font-weight:500');
+    if(it.note){const t=text(svg,x(it.value)+8+f(it.value).length*7.2+6,cy+4,it.note,'font-size:11px;fill:var(--ink-3)');}
+  });
+  if(o.ref){const xx=x(o.ref);el('line',{x1:xx,x2:xx,y1:pad.t,y2:H-pad.b+4,style:'stroke:var(--ink-3);stroke-width:1'},svg);text(svg,xx,H-4,o.refLabel||'',"font-size:11px;fill:var(--ink-2);font-weight:500",'middle');}
+  const tip=mkTip(wrap);
+  o.items.forEach((it,i)=>{const r=el('rect',{x:0,y:pad.t+rowH*i,width:W,height:rowH,style:'fill:transparent'},svg);
+    const show=()=>{tip.innerHTML=`<b>${it.label}</b><div class="r"><span>${o.valueName||'Qiymat'}</span><b>${f(it.value)}</b></div>`+(it.tip||'');placeTip(tip,wrap,W,x(it.value),pad.t+rowH*i+rowH/2-th/2);};
+    r.addEventListener('mouseenter',show);r.addEventListener('mouseleave',()=>tip.hidden=true);r.addEventListener('touchstart',show,{passive:true});});
+}
+
+function spark(vals){const w=72,h=32,mx=Math.max(...vals),mn=Math.min(...vals);const y=v=>mx===mn?h/2:3+(h-6)*(1-(v-mn)/(mx-mn));const pts=vals.map((v,i)=>[(i/(vals.length-1))*(w-4)+2,y(v)]);const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');const l=pts[pts.length-1];return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d}" fill="none" style="stroke:var(--line-2);stroke-width:1.5;stroke-linejoin:round"/><circle cx="${l[0]}" cy="${l[1]}" r="3" style="fill:var(--s1);stroke:var(--surface);stroke-width:1.5"/></svg>`;}
+
+/* ---------- UI bo'laklari ---------- */
+function delta(v,unit,upGood){if(!v)return `<span class="delta">0${unit?' '+unit:''}</span>`;const good=(v>0)===upGood;const d=Number.isInteger(v)?0:1;return `<span class="delta ${good?'good':'bad'}">${v>0?'↑ +':'↓ −'}${fmt(Math.abs(v),d)}${unit?' '+unit:''}</span>`;}
+function tile(t){return `<div class="tile"><div class="lbl">${t.label}</div><div class="val">${t.value}${t.unit?`<small>${t.unit}</small>`:''}</div>${t.spark?spark(t.spark):''}<div class="foot">${t.delta!==undefined?delta(t.delta,t.dUnit,t.upGood):''}<span>${t.cmp||''}</span></div></div>`;}
+function card(title,body,hint,extra){return `<div class="card ${extra||''}"><div class="hd"><h3>${title}</h3>${hint?`<span class="hint">${hint}</span>`:''}</div>${body}</div>`;}
+function ibar(v,max,low){return `<span class="ibar ${low?'low':''}"><b><i style="width:${Math.min(100,v/max*100)}%"></i></b>${pct(v,0)}</span>`;}
+function pill(cls,label){return `<span class="pill ${cls}"><i></i>${label}</span>`;}
+function trend(tr){return tr>0?'<span class="up">↑ oʼsdi</span>':tr<0?'<span class="down">↓ kamaydi</span>':'<span class="flat">→ oʼzgarmadi</span>';}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,3200);}
+function openDrawer(html){$('#drawer').innerHTML=html;$('#drawer').hidden=false;$('#overlay').hidden=false;$('#drawer').scrollTop=0;$('.drawer .x').focus();}
+function closeDrawer(){$('#drawer').hidden=true;$('#overlay').hidden=true;}
+$('#overlay').addEventListener('click',closeDrawer);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+$('#drawer').addEventListener('click',e=>{if(e.target.closest('.x'))closeDrawer();});
+
+/* ---------- Seriya tayyorlash ---------- */
+function daily(){const p=state.period,sh=share();let rows;
+  if(p==='90'){rows=[];for(let w=0;w<13;w++){const chunk=DAILY.slice(w*7,w*7+7);rows.push({label:dstr(chunk[0].d),cheks:chunk.reduce((a,r)=>a+r.cheks,0),akt:chunk.reduce((a,r)=>a+r.akt,0)});}}
+  else rows=DAILY.slice(-Number(p)).map(r=>({label:dstr(r.d),cheks:r.cheks,akt:r.akt}));
+  const s=curStore();const aktK=s?s.akt/TOT.akt:1;
+  return rows.map(r=>({label:r.label,cheks:Math.round(r.cheks*sh),akt:Math.round(r.akt*sh*aktK)}));}
+const weeks=()=>{const k=P().weeks;return {labels:WEEKS.slice(-k),in:W_IN.slice(-k),out:W_OUT.slice(-k),app:W_APP.slice(-k),rej:W_REJ.slice(-k)};};
+const sc=v=>Math.round(v*P().f*share());
+function filteredProducts(){return PRODUCTS.filter(p=>state.cat==='all'||p.cat===state.cat);}
+function filteredSellers(){return SELLERS.filter(s=>(state.store==='all'||s.st===state.store)&&(state.seller==='all'||s.n===state.seller));}
+function filteredClaims(){return CLAIMS.filter(c=>(state.store==='all'||c.st===state.store)&&(state.seller==='all'||c.seller===state.seller)&&(state.claimFilter==='all'||c.status===state.claimFilter));}
+
+/* ---------- Sahifalar ---------- */
+const RENDER={};
+
+RENDER.home=function(root){
+  const S=scope(),sh=share(),f=P().f,cmp=P().cmp,pk=state.period;const d=daily();
+  const off=curStore()?(STORES.indexOf(curStore())-2.5)*0.3:0;
+  const tiles=[
+    {label:'Sotuvlar soni (Billz cheklari)',value:fmt(Math.round(S.cheks*f)),delta:DELTAS.cheks[pk]+off,dUnit:'%',upGood:true,cmp,spark:d.slice(-12).map(r=>r.cheks)},
+    {label:'QR aktivatsiya darajasi',value:fmt(S.akt,1),unit:'%',delta:DELTAS.akt[pk]+off,dUnit:'pp',upGood:true,cmp,spark:d.slice(-12).map(r=>r.akt/Math.max(1,r.cheks))},
+    {label:'Faol kafolatlar',value:fmt(Math.round(TOT.kaf*sh)),delta:Math.round(DELTAS.kaf[pk]*sh),upGood:true,cmp},
+    {label:'Soʼrovnoma javob darajasi',value:fmt(S.resp,1),unit:'%',delta:DELTAS.resp[pk]+off,dUnit:'pp',upGood:true,cmp},
+    {label:'Qoniqish darajasi («yaxshi» javoblar)',value:fmt(S.sat,1),unit:'%',delta:DELTAS.sat[pk],dUnit:'pp',upGood:true,cmp},
+    {label:'Brak darajasi (tasdiqlangan / sotilgan)',value:fmt(S.brak,1),unit:'%',delta:DELTAS.brak[pk],dUnit:'pp',upGood:false,cmp},
+    {label:'Ochiq soʼrovlar',value:fmt(S.open),delta:Math.round(DELTAS.open[pk]*sh),upGood:false,cmp:'hozirgi holat'},
+    {label:'Oʼrtacha yopish muddati',value:fmt(S.close,1),unit:'kun',delta:DELTAS.close[pk],dUnit:'kun',upGood:false,cmp},
+  ];
+  const attention=[];
+  CLAIMS.filter(c=>isOpen(c)&&daysOpen(c)>7&&(state.store==='all'||c.st===state.store)).forEach(c=>attention.push({cls:'crit',t:`${c.id} · ${c.prod} · ${daysOpen(c)} kun ochiq`,s:`${storeName(c.st)} · masʼul: ${c.assignee||'tayinlanmagan'} · SLA 7 kun`,page:'brak',claim:c.id}));
+  filteredProducts().filter(p=>p.brak/p.sold*100>THRESHOLD).forEach(p=>attention.push({cls:'warn',t:`${p.n} — brak ${pct(p.brak/p.sold*100)} (chegara ${THRESHOLD} %)`,s:`${p.brand} · ${p.sup} · ${p.brak} ta tasdiqlangan`,page:'sifat'}));
+  STORES.filter(s=>s.akt<40&&(state.store==='all'||s.id===state.store)).forEach(s=>attention.push({cls:'warn',t:`${s.name} — QR aktivatsiya ${s.akt} %`,s:'3 kun ketma-ket 40 % dan past · doʼkon menejeriga xabar ketdi',page:'sotuv'}));
+  root.innerHTML=`<div class="kpis">${tiles.map(tile).join('')}</div>
+  <div class="grid c21">
+    ${card('Sotuvlar va QR aktivatsiya','<div id="c-home1"></div>','kunlar boʼyicha, dona')}
+    ${card('Brak soʼrovlari, haftalar boʼyicha','<div id="c-home2"></div>','yopilgan soʼrovlar')}
+  </div>
+  <div class="grid c21">
+    ${card('Eʼtibor talab qiladi',attention.length?`<div class="list">${attention.map(a=>`<div class="item ${a.cls}"><span class="stripe"></span><div class="t"><b>${a.t}</b><small>${a.s}</small></div><button class="btn" data-go="${a.page}" ${a.claim?`data-claim="${a.claim}"`:''} type="button">Ochish</button></div>`).join('')}</div>`:'<div class="empty">Hozircha hammasi meʼyorda</div>',`${attention.length} ta`)}
+    ${card('Top-5 brak mahsulot','<div id="c-home3"></div>','tasdiqlangan brak, dona')}
+  </div>`;
+  lineChart($('#c-home1'),{labels:d.map(r=>r.label),series:[{name:'Cheklar',color:'var(--s1)',values:d.map(r=>r.cheks),area:true},{name:'QR aktivatsiya',color:'var(--s3)',values:d.map(r=>r.akt)}],endLabels:true});
+  const w=weeks();
+  columnChart($('#c-home2'),{labels:w.labels,series:[{name:'Tasdiqlangan',color:'var(--s1)',values:w.app.map(v=>Math.round(v*sh))},{name:'Rad etilgan',color:'var(--s2)',values:w.rej.map(v=>Math.round(v*sh))}]});
+  const top=filteredProducts().map(p=>({label:p.n,value:sc(p.brak),tip:`<div class="r"><span>Brak darajasi</span><b>${pct(p.brak/p.sold*100)}</b></div>`})).sort((a,b)=>b.value-a.value).slice(0,5);
+  barChartH($('#c-home3'),{items:top,valueName:'Tasdiqlangan brak'});
+};
+
+RENDER.sotuv=function(root){
+  const S=scope(),f=P().f;const cheks=Math.round(S.cheks*f);
+  const stages=[['Billz chek',1],['QR chop etildi',0.99],['QR skanerlandi',0.68*S.akt/TOT.akt],['Bot /start',0.63*S.akt/TOT.akt],['Telefon tasdiqlandi',S.akt/100],['«Mening uyim» ochildi',S.akt/100*0.94]];
+  const cols=['var(--o1)','var(--o2)','var(--o3)','var(--o4)','var(--o5)','var(--o6)'];
+  const items=stages.map((s,i)=>{const v=Math.round(cheks*s[1]);const prev=i?Math.round(cheks*stages[i-1][1]):v;return {label:s[0],value:v,color:cols[i],note:i?`${fmt(v/prev*100,0)} % oldingi bosqichdan`:'',tip:`<div class="r"><span>Chekdan ulushi</span><b>${pct(s[1]*100,0)}</b></div>`};});
+  const rows=STORES.filter(s=>state.store==='all'||s.id===state.store).slice().sort((a,b)=>b.akt-a.akt);
+  root.innerHTML=`<div class="grid c21">
+    ${card('Voronka: chekdan «Mening uyim»gacha','<div id="c-s1"></div>','eng katta tushish qayerda?')}
+    ${card('Doʼkonlar boʼyicha QR aktivatsiya','<div id="c-s2"></div>','kompaniya oʼrtachasi bilan')}
+  </div>
+  ${card('Doʼkonlar kesimida',`<div class="scroll"><table class="tbl"><thead><tr><th>Doʼkon</th><th class="num">Cheklar</th><th class="num">Sotilgan birliklar</th><th class="num">Summa</th><th>QR aktivatsiya</th><th class="num">Doʼkonda skanerlangan</th><th class="num">Takroriy mijozlar</th><th>Holat</th></tr></thead><tbody>
+  ${rows.map(s=>`<tr><td><b>${s.name}</b></td><td class="num">${fmt(Math.round(s.cheks*f))}</td><td class="num">${fmt(Math.round(s.cheks*f*2.6))}</td><td class="num">${money(s.summa*f)}</td><td>${ibar(s.akt,100,s.akt<40)}</td><td class="num">${pct(s.inst,0)}</td><td class="num">${pct(s.rep,0)}</td><td>${s.akt<40?pill('crit','Past'):s.akt<55?pill('warn','Oʼrtachadan past'):pill('ok','Meʼyorda')}</td></tr>`).join('')}
+  </tbody></table></div>`,'aktivatsiya boʼyicha tartiblangan')}`;
+  barChartH($('#c-s1'),{items,rowH:34,thick:16,valW:150,valueName:'Cheklar'});
+  barChartH($('#c-s2'),{items:rows.map(s=>({label:s.name,value:s.akt,color:s.akt<40?'var(--crit)':'var(--s1)',tip:`<div class="r"><span>Doʼkonda skanerlangan</span><b>${pct(s.inst,0)}</b></div>`})),fmt:v=>fmt(v,0)+' %',max:100,ref:TOT.akt,refLabel:`Oʼrtacha ${fmt(TOT.akt,0)} %`,valueName:'QR aktivatsiya',rowH:34,thick:16});
+};
+
+RENDER.mijozlar=function(root){
+  const sh=share(),f=P().f;
+  const tiles=[
+    {label:'Jami roʼyxatdan oʼtgan mijozlar',value:fmt(Math.round(14820*sh)),delta:Math.round(1960*sh*f),upGood:true,cmp:'davrda qoʼshildi'},
+    {label:'Yangi mijozlar (davr)',value:fmt(Math.round(1960*sh*f)),delta:{7:4.8,30:2.6,90:11.4}[state.period],dUnit:'%',upGood:true,cmp:P().cmp},
+    {label:'Takroriy xarid qilganlar',value:fmt(scope().rep,1),unit:'%',delta:{7:0.4,30:1.1,90:3.2}[state.period],dUnit:'pp',upGood:true,cmp:P().cmp},
+    {label:'Bir mijozga oʼrtacha xarid',value:fmt(227),unit:'ming soʼm',delta:{7:-1.2,30:3.4,90:6.1}[state.period],dUnit:'%',upGood:true,cmp:P().cmp},
+  ];
+  const q=state.search.trim().toLowerCase();
+  const rows=CUSTOMERS.filter(c=>(state.store==='all'||c.lastSt===state.store)&&(!q||c.n.toLowerCase().includes(q)||c.ph.replace(/\s/g,'').includes(q.replace(/\s/g,''))));
+  root.innerHTML=`<div class="kpis">${tiles.map(tile).join('')}</div>
+  <div class="grid c21">
+    ${card('Yangi mijozlar, oylar boʼyicha','<div id="c-m1"></div>','2026')}
+    ${card('Segmentlar','<div id="c-m2"></div>','avtomatik: 1 xarid / 2+ xarid / 180 kun jim')}
+  </div>
+  ${card('Mijozlar roʼyxati',`<div class="chips" style="justify-content:space-between"><label class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg><input id="custSearch" placeholder="Ism yoki telefon raqami" value="${state.search}" aria-label="Mijoz qidirish"></label><span class="hint">${rows.length} ta · qatorni bosing — kartochka ochiladi</span></div>
+  <div class="scroll"><table class="tbl"><thead><tr><th>Mijoz</th><th>Roʼyxatdan oʼtgan</th><th class="num">Xaridlar</th><th class="num">Jami summa</th><th>Oxirgi xarid</th><th class="num">Faol kafolatlar</th><th class="num">Brak soʼrovlari</th><th>Segment</th></tr></thead><tbody>
+  ${rows.map((c,i)=>`<tr class="click" data-cust="${c.n}"><td><b>${c.n}</b><small>${c.ph}</small></td><td>${c.reg}</td><td class="num">${c.x}</td><td class="num">${money(c.sum)}</td><td>${c.last}<small>${storeName(c.lastSt)}</small></td><td class="num">${c.kaf}</td><td class="num">${CLAIMS.filter(k=>k.cust===c.n).length}</td><td>${pill(c.seg==='Uxlagan'?'rejected':c.seg==='Yangi'?'new':'replaced',c.seg)}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Topilmadi</td></tr>'}
+  </tbody></table></div>`)}`;
+  columnChart($('#c-m1'),{labels:MONTHS,series:[{name:'Yangi mijozlar',color:'var(--s1)',values:M_NEW.map(v=>Math.round(v*sh))}],labelTop:false});
+  barChartH($('#c-m2'),{items:[{label:'Yangi (1 xarid)',value:Math.round(8940*sh)},{label:'Doimiy (2+ xarid)',value:Math.round(4240*sh)},{label:'Uxlagan (180 kun)',value:Math.round(1640*sh)}],rowH:36,thick:16,valueName:'Mijozlar'});
+  const inp=$('#custSearch');inp.addEventListener('input',()=>{state.search=inp.value;const pos=inp.selectionStart;RENDER.mijozlar(root);const n=$('#custSearch');n.focus();n.setSelectionRange(pos,pos);});
+};
+
+RENDER.sorovnoma=function(root){
+  const rows=TOUCH.map(t=>({...t,sent:sc(t.sent),dlv:sc(t.dlv),ans:sc(t.ans),good:sc(t.good),bad:sc(t.bad),claims:sc(t.claims)}));
+  const k=P().weeks;
+  root.innerHTML=`${card('Bosqichlar kesimida',`<div class="scroll"><table class="tbl"><thead><tr><th>Bosqich</th><th>Qachon</th><th class="num">Yuborildi</th><th class="num">Yetkazildi</th><th class="num">Javob berildi</th><th class="num">«Yaxshi»</th><th class="num">«Muammo bor»</th><th class="num">Soʼrovga aylandi</th><th class="num">Oʼrtacha javob vaqti</th></tr></thead><tbody>
+  ${rows.map(t=>`<tr><td><b>${t.t}</b><small>${t.q}</small></td><td>${t.when}</td><td class="num">${fmt(t.sent)}</td><td class="num">${fmt(t.dlv)}<small>${pct(t.dlv/t.sent*100)}</small></td><td class="num">${fmt(t.ans)}<small>${pct(t.ans/t.dlv*100)}</small></td><td class="num">${fmt(t.good)}<small>${pct(t.good/t.ans*100)}</small></td><td class="num">${fmt(t.bad)}<small class="${t.bad/t.ans>0.1?'up':''}">${pct(t.bad/t.ans*100)}</small></td><td class="num">${fmt(t.claims)}</td><td class="num">${fmt(t.hrs,1)} soat</td></tr>`).join('')}
+  </tbody></table></div>`,'muddatlar sozlamalarda oʼzgartiriladi')}
+  <div class="grid c21">
+    ${card('Qoniqish darajasi, haftalar boʼyicha','<div id="c-q1"></div>','«yaxshi» javoblar ulushi, %')}
+    ${card('Mijoz izohlari',`<div class="list">${COMMENTS.map(c=>`<div class="item ${/muammo|oʼchdi|miltilla|isib|shovqin/i.test(c.t)?'warn':''}" style="grid-template-columns:4px 1fr"><span class="stripe" style="${/zoʼr|tavsiya/i.test(c.t)?'background:var(--good)':''}"></span><div class="t"><b>${c.t}</b><small>${c.c} · ${c.p} · ${c.d}</small></div></div>`).join('')}</div>`,'servis boʼlimi oʼqib chiqadi')}
+  </div>`;
+  lineChart($('#c-q1'),{labels:WEEKS.slice(-k),series:[{name:'T1 (7 kun)',color:'var(--s1)',values:W_SAT.T1.slice(-k)},{name:'T2 (30 kun)',color:'var(--s2)',values:W_SAT.T2.slice(-k)},{name:'T3 (90 kun)',color:'var(--s3)',values:W_SAT.T3.slice(-k)}],yMin:80,yMax:100,fmt:v=>fmt(v,0)+' %',endLabels:true});
+};
+
+RENDER.brak=function(root){
+  const base=CLAIMS.filter(c=>(state.store==='all'||c.st===state.store)&&(state.seller==='all'||c.seller===state.seller));
+  const counts=Object.keys(STATUS).reduce((a,k)=>(a[k]=base.filter(c=>c.status===k).length,a),{});
+  const rows=filteredClaims().slice().sort((a,b)=>b.date-a.date);
+  const sh=share(),f=P().f;const S=scope();
+  const closedRepl=base.filter(c=>c.status==='replaced');
+  const tiles=[
+    {label:'Kelgan soʼrovlar (davr)',value:fmt(Math.round(148*f*sh)),delta:{7:3,30:11,90:-4}[state.period],upGood:false,cmp:P().cmp},
+    {label:'Tasdiqlangan',value:fmt(62,0),unit:'%',delta:-2.1,dUnit:'pp',upGood:false,cmp:'kelganlarga nisbatan'},
+    {label:'Oʼrtacha yopish muddati',value:fmt(S.close,1),unit:'kun',delta:DELTAS.close[state.period],dUnit:'kun',upGood:false,cmp:P().cmp},
+    {label:'SLA buzilgan (7 kundan ortiq)',value:fmt(base.filter(c=>isOpen(c)&&daysOpen(c)>7).length),delta:-1,upGood:false,cmp:'hozir ochiq'},
+    {label:'Almashtirish xarajati (davr)',value:fmt(Math.round(18.4*f*sh*10)/10,1),unit:'mln soʼm',delta:{7:-8.5,30:4.2,90:9.0}[state.period],dUnit:'%',upGood:false,cmp:P().cmp},
+  ];
+  const w=weeks();
+  root.innerHTML=`<div class="kpis k5">${tiles.map(tile).join('')}</div>
+  <div class="grid c2">
+    ${card('Kelgan va yopilgan soʼrovlar','<div id="c-b1"></div>','haftalar boʼyicha')}
+    ${card('Holatlar oqimi',flowSVG()+'<p>Har bir holat oʼzgarishi vaqti va kim qilgani saqlanadi — SLA va bosqichlar boʼyicha vaqt tahlili shundan hisoblanadi.</p>','har bir oʼzgarish vaqt bilan yoziladi')}
+  </div>
+  ${card('Soʼrovlar roʼyxati',`<div class="chips">${[['all','Hammasi',base.length],...Object.keys(STATUS).map(k=>[k,STATUS[k],counts[k]])].map(([k,l,n])=>`<button class="chip" type="button" data-cf="${k}" aria-pressed="${state.claimFilter===k}">${l}<span class="n">${n}</span></button>`).join('')}</div>
+  <div class="scroll"><table class="tbl"><thead><tr><th>№ / sana</th><th>Mijoz</th><th>Mahsulot</th><th>Doʼkon / sotuvchi</th><th>Sabab</th><th>Holat</th><th class="num">Ochiq kunlar</th><th>Masʼul</th></tr></thead><tbody>
+  ${rows.map(c=>{const d=daysOpen(c);const over=isOpen(c)&&d>7;return `<tr class="click" data-claim="${c.id}"><td><b>${c.id}</b><small>${dfull(c.date)}</small></td><td>${c.cust}<small>${c.ph}</small></td><td>${c.prod}<small>${c.brand} · ${c.sn}</small></td><td>${storeName(c.st)}<small>${c.seller}</small></td><td>${c.reason}</td><td>${pill(c.status,STATUS[c.status])}</td><td class="num ${over?'up':''}">${isOpen(c)?`<b>${d}</b> kun`:`yopildi ${dstr(c.closed)}`}</td><td>${c.assignee||'<span class="flat">tayinlanmagan</span>'}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Bu filtrda soʼrov yoʼq</td></tr>'}
+  </tbody></table></div>`,'qatorni bosing — kartochka ochiladi')}`;
+  lineChart($('#c-b1'),{labels:w.labels,series:[{name:'Kelgan',color:'var(--s2)',values:w.in.map(v=>Math.round(v*sh))},{name:'Yopilgan',color:'var(--s1)',values:w.out.map(v=>Math.round(v*sh))}],endLabels:true});
+};
+function flowSVG(){
+  const box=(x,y,w,label,color)=>`<rect x="${x}" y="${y}" width="${w}" height="36" rx="8" style="fill:var(--surface-2);stroke:var(--line-2)"/><circle cx="${x+14}" cy="${y+18}" r="4" style="fill:${color}"/><text x="${x+24}" y="${y+22}" style="font-size:12px;fill:var(--ink)">${label}</text>`;
+  const arrow=d=>`<path d="${d}" style="fill:none;stroke:var(--ink-3);stroke-width:1.5" marker-end="url(#arr)"/>`;
+  const note=(x,y,s)=>`<text x="${x}" y="${y}" style="font-size:10.5px;fill:var(--ink-3)">${s}</text>`;
+  return `<svg viewBox="0 0 430 232" width="430" height="232" style="display:block;width:100%;max-width:430px;height:auto" role="img" aria-label="Holatlar oqimi"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--ink-3)"/></marker></defs>
+  ${box(0,2,170,'Yangi','var(--s1)')}${box(0,66,170,'Koʼrib chiqilmoqda','var(--warn)')}${box(0,130,170,'Tasdiqlangan','var(--accent)')}${box(0,194,170,'Almashtirildi','var(--good)')}${box(260,130,150,'Rad etilgan','var(--ink-3)')}
+  ${arrow('M85 38 V62')}${arrow('M85 102 V126')}${arrow('M85 166 V190')}${arrow('M170 84 H335 V126')}
+  ${note(96,56,'servis qabul qildi')}${note(96,120,'brak tasdiqlandi')}${note(96,184,'yangi mahsulot berildi')}${note(196,108,'brak emas / kafolat shartiga kirmaydi')}
+  </svg>`;
+}
+
+function claimDrawer(c){
+  const tl=[{t:'Kelib tushdi (bot)',d:dfull(c.date)+', 10:14',done:true}];
+  const idx=['new','review','approved','replaced'].indexOf(c.status);
+  if(idx>=1||c.status==='rejected')tl.push({t:'Servis qabul qildi — '+(c.assignee||'—'),d:dfull(new Date(c.date.getTime()+DAY))+', 09:30',done:true});
+  if(c.status==='rejected')tl.push({t:'Rad etildi: '+c.rej,d:dfull(c.closed)+', 16:05',done:true});
+  if(idx>=2)tl.push({t:'Brak tasdiqlandi',d:dfull(new Date(c.date.getTime()+2*DAY))+', 14:20',done:true});
+  if(idx>=3)tl.push({t:'Almashtirildi — yangi mahsulot berildi',d:dfull(c.closed)+', 12:40',done:true});
+  if(isOpen(c))tl.push({t:'Keyingi qadam: '+(c.status==='new'?'servis qabul qilishi':c.status==='review'?'tekshiruv natijasi':'yangi mahsulotni berish'),d:'kutilmoqda · '+daysOpen(c)+' kun ochiq',now:true});
+  const acts=c.status==='new'?`<button class="btn primary" data-act="review" type="button">Qabul qilish</button>`:c.status==='review'?`<button class="btn primary" data-act="approved" type="button">Brakni tasdiqlash</button><button class="btn danger" data-act="rejected" type="button">Rad etish</button>`:c.status==='approved'?`<button class="btn primary" data-act="replaced" type="button">Almashtirildi deb belgilash</button>`:'';
+  openDrawer(`<div class="dh"><div><h2>${c.id} · ${c.prod}</h2><div style="margin-top:6px">${pill(c.status,STATUS[c.status])} ${isOpen(c)&&daysOpen(c)>7?pill('crit','SLA buzilgan'):''}</div></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
+  <div><h4>Mijoz va xarid</h4><dl class="stat"><dt>Mijoz</dt><dd>${c.cust}</dd><dt>Telefon</dt><dd>${c.ph}</dd><dt>Chek</dt><dd>${c.chek} · ${storeName(c.st)}</dd><dt>Sotuvchi</dt><dd>${c.seller}</dd><dt>Seriya №</dt><dd>${c.sn}</dd><dt>Kafolat</dt><dd>${pill('ok','Faol')} 12 oy</dd></dl></div>
+  <div><h4>Soʼrov</h4><dl class="stat"><dt>Sabab</dt><dd>${c.reason}</dd><dt>Mijoz matni</dt><dd style="font-weight:400">«${c.text}»</dd>${c.cost?`<dt>Xarajat</dt><dd>${money(c.cost)}</dd>`:''}</dl></div>
+  <div><h4>Foto / video (${c.photos})</h4>${c.photos?`<div class="photo">${Array.from({length:c.photos},(_,i)=>`<div>foto ${i+1}</div>`).join('')}</div>`:'<div class="hint">Mijoz fayl yubormagan</div>'}</div>
+  <div><h4>Holatlar tarixi</h4><ul class="tl">${tl.map(e=>`<li class="${e.done?'done':''} ${e.now?'now':''}">${e.t}<small>${e.d}</small></li>`).join('')}</ul></div>
+  ${acts?`<div class="actions" data-claim="${c.id}">${acts}</div>`:''}`);
+}
+$('#drawer').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const id=b.closest('[data-claim]').dataset.claim;const c=CLAIMS.find(k=>k.id===id);c.status=b.dataset.act;if(!c.assignee)c.assignee='Umid Karimov';if(c.status==='rejected'){c.closed=TODAY;c.rej='Tekshiruvda brak tasdiqlanmadi';}if(c.status==='replaced'){c.closed=TODAY;c.cost=c.cost||0.05;}toast(`${c.id}: holat «${STATUS[c.status]}» ga oʼzgartirildi (namuna)`);render();claimDrawer(c);});
+
+function custDrawer(c){
+  const cl=CLAIMS.filter(k=>k.cust===c.n);
+  const buys=[{d:c.last,st:c.lastSt,items:'Kabel VVG 3×2,5 · Avtomat 16A ×2 · Rozetka ×6',sum:0.41,seller:SELLERS.find(s=>s.st===c.lastSt).n}];
+  if(c.x>1)buys.push({d:c.reg,st:c.lastSt,items:'LED lampa 12W ×8 · Udlinitel 5 m',sum:0.19,seller:SELLERS.filter(s=>s.st===c.lastSt)[1].n});
+  openDrawer(`<div class="dh"><div><h2>${c.n}</h2><div class="hint" style="margin-top:4px">${c.ph} · roʼyxatdan oʼtgan ${c.reg} · ${pill(c.seg==='Uxlagan'?'rejected':c.seg==='Yangi'?'new':'replaced',c.seg)}</div></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
+  <div class="kpis" style="grid-template-columns:1fr 1fr;margin:0">${tile({label:'Xaridlar',value:fmt(c.x)})}${tile({label:'Jami summa',value:money(c.sum)})}</div>
+  <div><h4>Xaridlar (${c.x})</h4><div class="list">${buys.map(b=>`<div class="item" style="grid-template-columns:1fr auto;padding:0 10px"><div class="t"><b>${b.items}</b><small>${b.d} · ${storeName(b.st)} · ${b.seller}</small></div><b style="font-variant-numeric:tabular-nums">${money(b.sum)}</b></div>`).join('')}${c.x>2?`<div class="hint">… yana ${c.x-2} ta xarid</div>`:''}</div></div>
+  <div><h4>SMS soʼrovnomalar</h4><dl class="stat"><dt>T1 (7 kun)</dt><dd>${c.x>0?'yuborildi · javob: «yaxshi»':'—'}</dd><dt>T2 (30 kun)</dt><dd>${c.seg==='Yangi'?'rejalashtirilgan':cl.length?'javob: «muammo bor» → soʼrov ochildi':'javob yoʼq'}</dd><dt>Marketing roziligi</dt><dd>${c.seg==='Uxlagan'?pill('rejected','Yoʼq'):pill('ok','Bor')}</dd></dl></div>
+  <div><h4>Brak soʼrovlari (${cl.length})</h4>${cl.length?`<div class="list">${cl.map(k=>`<div class="item" style="grid-template-columns:1fr auto;padding:0 10px"><div class="t"><b>${k.id} · ${k.prod}</b><small>${dfull(k.date)} · ${k.reason}</small></div>${pill(k.status,STATUS[k.status])}</div>`).join('')}</div>`:'<div class="hint">Soʼrov yoʼq</div>'}</div>`);
+}
+
+RENDER.sifat=function(root){
+  const f=P().f,sh=share();
+  const prods=filteredProducts();
+  const agg=(key)=>{const m={};prods.forEach(p=>{const k=p[key];m[k]=m[k]||{n:k,sold:0,req:0,brak:0,cost:0,satW:0,tr:0,cnt:0,sub:new Set()};const a=m[k];a.sold+=p.sold;a.req+=p.req;a.brak+=p.brak;a.cost+=p.cost;a.satW+=p.sat*p.sold;a.tr+=p.tr;a.cnt++;a.sub.add(key==='brand'?p.sup:p.brand);});return Object.values(m).map(a=>({...a,sat:a.satW/a.sold,sub:[...a.sub].join(', '),tr:Math.sign(a.tr)}));};
+  const rows=(state.qView==='product'?prods.map(p=>({...p,sub:`${p.brand} · ${p.sup}`})):agg(state.qView==='brand'?'brand':'sup')).map(r=>({...r,rate:r.brak/r.sold*100})).sort((a,b)=>b.rate-a.rate);
+  const over=rows.filter(r=>r.rate>THRESHOLD).length;
+  root.innerHTML=`<div class="chips">${[['product','Mahsulot'],['brand','Brend'],['sup','Yetkazib beruvchi']].map(([k,l])=>`<button class="chip" type="button" data-qv="${k}" aria-pressed="${state.qView===k}">${l}</button>`).join('')}<span class="hint" style="align-self:center;margin-left:auto">${over} ta chegaradan (${THRESHOLD} %) oshgan</span></div>
+  <div class="grid c21">
+    ${card('Brak darajasi boʼyicha reyting',`<div class="scroll"><table class="tbl"><thead><tr><th>${state.qView==='product'?'Mahsulot':state.qView==='brand'?'Brend':'Yetkazib beruvchi'}</th><th class="num">Sotildi</th><th class="num">Soʼrovlar</th><th class="num">Tasdiqlangan</th><th class="num">Brak darajasi</th><th class="num">Qoniqish</th><th class="num">Xarajat</th><th>Trend</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><b>${r.n}</b><small>${r.sub}</small></td><td class="num">${fmt(Math.round(r.sold*f*sh))}</td><td class="num">${fmt(Math.round(r.req*f*sh))}</td><td class="num">${fmt(Math.round(r.brak*f*sh))}</td><td class="num">${r.rate>THRESHOLD?pill('crit',pct(r.rate)):r.rate>2?pill('warn',pct(r.rate)):pill('ok',pct(r.rate))}</td><td class="num">${pct(r.sat,0)}</td><td class="num">${money(r.cost*f*sh)}</td><td>${trend(r.tr)}</td></tr>`).join('')}
+    </tbody></table></div>`,'xarid boʼlimi uchun — yetkazib beruvchi bilan muzokara dalili')}
+    ${card('Brak darajasi, %','<div id="c-k1"></div>',`chegara ${THRESHOLD} %`)}
+  </div>`;
+  barChartH($('#c-k1'),{items:rows.slice(0,10).map(r=>({label:r.n,value:Math.round(r.rate*10)/10,color:r.rate>THRESHOLD?'var(--crit)':'var(--s1)',tip:`<div class="r"><span>Tasdiqlangan brak</span><b>${fmt(r.brak)} / ${fmt(r.sold)}</b></div>`})),fmt:v=>fmt(v,1)+' %',ref:THRESHOLD,refLabel:`chegara ${THRESHOLD} %`,valueName:'Brak darajasi',rowH:30});
+};
+
+RENDER.sotuvchilar=function(root){
+  const f=P().f;
+  const rows=filteredSellers().slice().sort((a,b)=>b.ball-a.ball);
+  const avg=SELLERS.reduce((a,s)=>a+s.akt*s.cheks,0)/SELLERS.reduce((a,s)=>a+s.cheks,0);
+  root.innerHTML=`${card('Sotuvchilar reytingi',`<div class="scroll"><table class="tbl"><thead><tr><th>#</th><th>Sotuvchi</th><th class="num">Cheklar</th><th class="num">Summa</th><th class="num">Oʼrtacha chek</th><th>QR aktivatsiya</th><th class="num">Doʼkonda skanerlangan</th><th class="num">Takroriy mijoz</th><th class="num">Rad etilgan soʼrov</th><th class="num">Xizmat bahosi</th><th class="num">Ball</th></tr></thead><tbody>
+  ${rows.map((s,i)=>`<tr><td class="num">${i+1}</td><td><b>${s.n}</b><small>${storeName(s.st)}</small></td><td class="num">${fmt(Math.round(s.cheks*f))}</td><td class="num">${money(s.summa*f)}</td><td class="num">${fmt(Math.round(s.summa/s.cheks*1000))} ming</td><td>${ibar(s.akt,100,s.akt<avg-10)}</td><td class="num">${pct(s.inst,0)}</td><td class="num">${pct(s.rep,0)}</td><td class="num ${s.rad>=15?'up':''}">${pct(s.rad,0)}</td><td class="num">${fmt(s.csat,1)} / 5</td><td class="num"><b>${s.ball}</b></td></tr>`).join('')||'<tr><td colspan="11" class="empty">Sotuvchi topilmadi</td></tr>'}
+  </tbody></table></div>`,'ball: summa 40 % · aktivatsiya 25 % · takroriy mijoz 20 % · xizmat bahosi 15 %')}
+  <div class="grid c2">
+    ${card('QR aktivatsiya, sotuvchilar boʼyicha','<div id="c-t1"></div>','kompaniya oʼrtachasi bilan')}
+    ${card('Oylik reyting',`<p style="margin:0">Oy yakunida jadval avtomatik PDF qilinib rahbariyat Telegram guruhiga yuboriladi. Rad etilgan soʼrovlar ulushi 15 % dan yuqori boʼlgan sotuvchi — kafolat shartlarini notoʼgʼri tushuntirayotgan boʼlishi mumkin, bu holda doʼkon menejeriga alohida xabar ketadi.</p><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-export="pdf">Reytingni PDF qilish</button><button class="btn" type="button" data-export="tg">Telegram guruhiga yuborish</button></div>`,'har oyning 1-kuni')}
+  </div>`;
+  barChartH($('#c-t1'),{items:rows.map(s=>({label:s.n,value:s.akt,color:s.akt<avg-10?'var(--crit)':'var(--s1)'})),fmt:v=>fmt(v,0)+' %',max:100,ref:Math.round(avg),refLabel:`Oʼrtacha ${fmt(avg,0)} %`,valueName:'Aktivatsiya',rowH:28});
+};
+
+RENDER.tizim=function(root){
+  const f=P().f;
+  const tiles=[
+    {label:'SMS yuborildi',value:fmt(Math.round(9050*f)),delta:{7:2.1,30:5.4,90:14.2}[state.period],dUnit:'%',upGood:true,cmp:P().cmp},
+    {label:'Yetkazildi',value:fmt(97.5,1),unit:'%',delta:0.3,dUnit:'pp',upGood:true,cmp:'229 ta xato'},
+    {label:'SMS xarajati (davr)',value:fmt(Math.round(1267*f)),unit:'ming soʼm',delta:{7:2.1,30:5.4,90:14.2}[state.period],dUnit:'%',upGood:false,cmp:'140 soʼm / SMS'},
+    {label:'Provayder balansi',value:fmt(4120),unit:'ming soʼm',cmp:'≈ 29 kunlik sarf'},
+    {label:'Bot: oylik faol foydalanuvchilar',value:fmt(6420),delta:8.7,dUnit:'%',upGood:true,cmp:'oʼtgan oyga nisbatan'},
+  ];
+  root.innerHTML=`<div class="kpis k5">${tiles.map(tile).join('')}</div>
+  <div class="grid c2">
+    ${card('SMS shablonlar boʼyicha',`<div class="scroll"><table class="tbl"><thead><tr><th>Shablon</th><th class="num">Yuborildi</th><th class="num">Yetkazildi</th><th class="num">Xato</th><th class="num">Xarajat</th></tr></thead><tbody>
+    ${[['T1 — 7 kun',2940,2871],['T2 — 30 kun',2610,2544],['T3 — 90 kun',2180,2117],['T4 — kafolat tugashi',1320,1289],['QR aktivatsiya kodi',0,0],['Boshqa (servis xabarlari)',0,0]].map(([n,s,d])=>{s=Math.round(s*f);d=Math.round(d*f);return `<tr><td>${n}</td><td class="num">${s?fmt(s):'—'}</td><td class="num">${s?pct(d/s*100):'—'}</td><td class="num">${s?fmt(s-d):'—'}</td><td class="num">${s?fmt(Math.round(d*0.14))+' ming':'—'}</td></tr>`;}).join('')}
+    </tbody></table></div><p>Xato sabablari: notoʼgʼri raqam 61 %, bloklangan 27 %, provayder xatosi 12 %.</p>`,'Eskiz / Playmobile API')}
+    ${card('Billz sinxron holati',`<dl class="stat"><dt>Holat</dt><dd><span class="dot"></span>Ishlayapti</dd><dt>Oxirgi sinxron</dt><dd>25.09.2026, 09:38</dd><dt>Bugun oʼtkazildi</dt><dd>${fmt(273)} ta chek</dd><dt>Xato bilan tushgan</dt><dd class="up">3 ta chek</dd></dl>
+    <div class="scroll" style="margin-top:12px"><table class="tbl"><thead><tr><th>Chek №</th><th>Doʼkon</th><th>Vaqt</th><th class="wrap">Xato</th></tr></thead><tbody>
+    <tr><td>B-48231</td><td>Sergeli</td><td>08:52</td><td class="wrap">Mahsulot SKU topilmadi (yangi tovar kartochkasi)</td></tr>
+    <tr><td>B-48219</td><td>Olmazor</td><td>08:41</td><td class="wrap">Kassir ID xodimga bogʼlanmagan</td></tr>
+    <tr><td>B-48204</td><td>Yunusobod</td><td>08:15</td><td class="wrap">Kafolat muddati boʼsh (kategoriya sozlanmagan)</td></tr>
+    </tbody></table></div><p>Bu cheklar tizimda yoʼq — mijoz QR ni skanerlaganda hech narsa topilmaydi. Har kuni tekshiriladi.</p>`,'webhook, har 5 daqiqada')}
+  </div>
+  <div class="grid c2">
+    ${card('Bot faoliyati',`<dl class="stat"><dt>/start bosganlar (davr)</dt><dd>${fmt(Math.round(3120*f))}</dd><dt>Telefon tasdiqlashda uzilganlar</dt><dd class="up">14 %</dd><dt>«Mening uyim»ga kirishlar</dt><dd>${fmt(Math.round(8760*f))}</dd><dt>Botni bloklaganlar</dt><dd>${fmt(Math.round(96*f))}</dd><dt>Bot xatolari</dt><dd>${fmt(Math.round(12*f))}</dd></dl>`,'Telegram Bot API')}
+    ${card('Audit jurnali (oxirgi)',`<div class="scroll"><table class="tbl"><thead><tr><th>Vaqt</th><th>Xodim</th><th class="wrap">Amal</th></tr></thead><tbody>
+    <tr><td>09:35</td><td>Umid Karimov</td><td class="wrap">QK-1050 holati: Yangi → Koʼrib chiqilmoqda</td></tr>
+    <tr><td>09:20</td><td>Dilshod Rahmatov</td><td class="wrap">QK-1047 tasdiqlandi</td></tr>
+    <tr><td>08:58</td><td>Oydin Manager</td><td class="wrap">Brak chegarasi 3 % → 3 % (oʼzgarmadi), haftalik hisobot vaqti 09:00</td></tr>
+    <tr><td>Kecha 18:12</td><td>Oydin Manager</td><td class="wrap">Sotuvchilar reytingi Excel eksport</td></tr>
+    </tbody></table></div>`,'kim, qachon, nimani oʼzgartirdi')}
+  </div>`;
+};
+
+const ALERTS=[
+ {on:true,n:'Kunlik qisqa hisobot',w:'Har kuni 09:00',to:'Rahbariyat guruhi',th:'—',type:'Muntazam'},
+ {on:true,n:'Haftalik hisobot + 6 doʼkon reytingi',w:'Dushanba 09:00',to:'Rahbariyat guruhi',th:'—',type:'Muntazam'},
+ {on:true,n:'Oylik hisobot (PDF)',w:'Oyning 1-kuni 09:00',to:'Rahbariyat',th:'—',type:'Muntazam'},
+ {on:true,n:'Servis navbati',w:'09:00 va 15:00',to:'Servis guruhi',th:'—',type:'Muntazam'},
+ {on:true,n:'Yangi brak soʼrovi',w:'Darhol',to:'Servis guruhi',th:'har safar',type:'Ogohlantirish'},
+ {on:true,n:'Soʼrov SLA dan oshdi',w:'Darhol',to:'Servis rahbari',th:'7 kun',type:'Ogohlantirish'},
+ {on:true,n:'Mahsulot brak chegarasidan oshdi',w:'Darhol',to:'Xarid boʼlimi + rahbariyat',th:'3 %, kamida 50 dona',type:'Ogohlantirish'},
+ {on:true,n:'Doʼkon aktivatsiyasi tushib ketdi',w:'Darhol',to:'Doʼkon menejeri',th:'3 kun < 40 %',type:'Ogohlantirish'},
+ {on:true,n:'SMS balansi kam',w:'Darhol',to:'Admin',th:'< 3 kunlik sarf',type:'Ogohlantirish'},
+ {on:true,n:'Billz sinxron toʼxtadi',w:'Darhol',to:'Admin',th:'30 daqiqa',type:'Ogohlantirish'},
+ {on:false,n:'Mijoz soʼrovnomada «muammo bor» dedi',w:'Darhol',to:'Servis guruhi',th:'har safar',type:'Ogohlantirish'},
+];
+RENDER.xabarnomalar=function(root){
+  root.innerHTML=card('Telegram xabarnomalari',`<div class="scroll"><table class="tbl"><thead><tr><th>Yoqilgan</th><th>Xabar</th><th>Turi</th><th>Qachon</th><th>Kimga</th><th>Chegara</th></tr></thead><tbody>
+  ${ALERTS.map((a,i)=>`<tr class="${a.on?'':'row-off'}"><td><input type="checkbox" class="sw" id="al${i}" data-al="${i}" ${a.on?'checked':''} aria-label="${a.n}"></td><td><label for="al${i}"><b>${a.n}</b></label></td><td>${a.type==='Muntazam'?pill('new',a.type):pill('review',a.type)}</td><td>${a.w}</td><td>${a.to}</td><td>${a.th==='—'?'—':`<input class="txt" id="th${i}" value="${a.th}" aria-label="Chegara">`}</td></tr>`).join('')}
+  </tbody></table></div><p>Har bir xabarda panelning tegishli sahifasiga havola boʼladi. Vaqt, chegara va guruhlar shu yerda oʼzgartiriladi.</p>`,`${ALERTS.filter(a=>a.on).length} / ${ALERTS.length} yoqilgan`)
+  +card('Kunlik hisobot namunasi (Telegram)',`<div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;max-width:520px"><b>QR Kafolat — 24.09.2026</b><br>Sotuvlar: <b>281</b> chek (+4 % kechaga nisbatan)<br>QR aktivatsiya: <b>59 %</b> · eng past: Sergeli 37 %<br>Yangi soʼrovlar: <b>2</b> · yopildi: <b>3</b> · ochiq: <b>48</b><br>SLA buzilgan: <b>2</b> (QK-1042, QK-1036)<br>SMS: 312 yuborildi, 97,8 % yetkazildi<br><span style="color:var(--accent)">Panelni ochish →</span></div>`,'har kuni 09:00')
+};
+document.addEventListener('change',e=>{if(e.target.matches('.sw')){const i=Number(e.target.dataset.al);ALERTS[i].on=e.target.checked;e.target.closest('tr').classList.toggle('row-off',!e.target.checked);toast(`«${ALERTS[i].n}» ${e.target.checked?'yoqildi':'oʼchirildi'} (namuna)`);}});
+
+/* ---------- Navigatsiya va filtrlar ---------- */
+const ICONS={home:'<path d="M2.5 8 8 3l5.5 5M4 7v6h8V7"/>',funnel:'<path d="M2 3h12l-4.5 5v4l-3 1.5V8z"/>',users:'<circle cx="5.5" cy="5" r="2.2"/><path d="M2 13c0-2.2 1.6-3.5 3.5-3.5S9 10.8 9 13"/><circle cx="11" cy="5.5" r="1.8"/><path d="M9.8 9.8c2 0 4 1.2 4 3.2"/>',msg:'<path d="M2 3h12v7H6l-3 3v-3H2z"/>',wrench:'<path d="M10.5 2.5a3 3 0 0 0-4 3.8L2.5 10.3 4.7 12.5l4-4a3 3 0 0 0 3.8-4L10.6 6.4 9.3 5.1z"/>',box:'<path d="M2 5 8 2l6 3v6l-6 3-6-3zM2 5l6 3 6-3M8 8v6"/>',star:'<path d="M8 2l1.8 3.8 4.2.6-3 2.9.7 4.2L8 11.5 4.3 13.5l.7-4.2-3-2.9 4.2-.6z"/>',cpu:'<rect x="4" y="4" width="8" height="8" rx="1"/><rect x="6.5" y="6.5" width="3" height="3"/><path d="M6 1.5V4M10 1.5V4M6 12v2.5M10 12v2.5M1.5 6H4M1.5 10H4M12 6h2.5M12 10h2.5"/>',bell:'<path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3"/>'};
+const PAGES=[
+ {id:'home',t:'Bosh sahifa',sub:'KPI paneli · 8 ta asosiy koʼrsatkich, 6 doʼkon',group:'Asosiy',icon:'home'},
+ {id:'sotuv',t:'Sotuv va QR aktivatsiya',sub:'Hisobot 1 · voronka va doʼkonlar kesimi',group:'Hisobotlar',icon:'funnel'},
+ {id:'mijozlar',t:'Mijozlar bazasi',sub:'Hisobot 2 · «Mening uyim» orqali roʼyxatdan oʼtganlar',icon:'users'},
+ {id:'sorovnoma',t:'Soʼrovnoma (SMS)',sub:'Hisobot 3 · T1–T4 bosqichlar boʼyicha natijalar',icon:'msg'},
+ {id:'brak',t:'Brak va almashtirish',sub:'Hisobot 4 · servis boʼlimining asosiy ish ekrani',icon:'wrench',badge:()=>CLAIMS.filter(c=>c.status==='new').length},
+ {id:'sifat',t:'Mahsulot sifati',sub:'Hisobot 5 · mahsulot, brend va yetkazib beruvchi',icon:'box'},
+ {id:'sotuvchilar',t:'Sotuvchilar reytingi',sub:'Hisobot 6 · sotuvchi va doʼkon samaradorligi',icon:'star'},
+ {id:'tizim',t:'Tizim va SMS',sub:'Hisobot 7 · SMS provayder, bot, Billz sinxron',icon:'cpu'},
+ {id:'xabarnomalar',t:'Xabarnomalar',sub:'Sozlamalar · Telegram avtomatik xabarlar va ogohlantirishlar',group:'Sozlamalar',icon:'bell'},
+];
+function buildNav(){const nav=$('#nav');nav.innerHTML=PAGES.map(p=>`${p.group?`<h6>${p.group}</h6>`:''}<button type="button" data-page="${p.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[p.icon]}</svg><span>${p.t}</span>${p.badge&&p.badge()?`<span class="n">${p.badge()}</span>`:''}</button>`).join('');}
+function go(page){state.page=page;try{if(location.hash!=='#'+page)history.replaceState(null,'','#'+page);}catch(e){}render();window.scrollTo({top:0});}
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(b)go(b.dataset.page);});
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]');if(g){if(g.dataset.claim){go(g.dataset.go);claimDrawer(CLAIMS.find(c=>c.id===g.dataset.claim));}else go(g.dataset.go);return;}
+  const cf=e.target.closest('[data-cf]');if(cf){state.claimFilter=cf.dataset.cf;render();return;}
+  const qv=e.target.closest('[data-qv]');if(qv){state.qView=qv.dataset.qv;render();return;}
+  const tr=e.target.closest('tr[data-claim]');if(tr){claimDrawer(CLAIMS.find(c=>c.id===tr.dataset.claim));return;}
+  const tc=e.target.closest('tr[data-cust]');if(tc){custDrawer(CUSTOMERS.find(c=>c.n===tc.dataset.cust));return;}
+  const ex=e.target.closest('[data-export]');if(ex){toast(ex.dataset.export==='pdf'?'Reyting PDF tayyorlanmoqda — haqiqiy tizimda fayl yuklanadi (namuna)':'Rahbariyat guruhiga yuborildi (namuna)');return;}
+  if(e.target.closest('#btnExport')){toast('Excel eksport: haqiqiy tizimda hisobot_25-09-2026.xlsx yuklanadi (namuna)');}
+});
+function fillSelect(sel,opts,val){sel.innerHTML=opts.map(o=>`<option value="${o[0]}" ${o[0]===val?'selected':''}>${o[1]}</option>`).join('');}
+function initFilters(){
+  fillSelect($('#fStore'),[['all','Barcha doʼkonlar (6)'],...STORES.map(s=>[s.id,s.name])],state.store);
+  fillSelect($('#fSeller'),[['all','Barcha sotuvchilar'],...SELLERS.filter(s=>state.store==='all'||s.st===state.store).map(s=>[s.n,s.n])],state.seller);
+  fillSelect($('#fCat'),[['all','Barcha kategoriyalar'],...CATS.map(c=>[c.id,c.n])],state.cat);
+}
+$('#fPeriod').addEventListener('change',e=>{state.period=e.target.value;render();});
+$('#fStore').addEventListener('change',e=>{state.store=e.target.value;state.seller='all';initFilters();render();});
+$('#fSeller').addEventListener('change',e=>{state.seller=e.target.value;render();});
+$('#fCat').addEventListener('change',e=>{state.cat=e.target.value;render();});
+
+function render(){
+  const p=state.page;
+  $$('.page').forEach(s=>s.hidden=s.id!=='p-'+p);
+  $$('#nav [data-page]').forEach(b=>{if(b.dataset.page===p)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  const pg=PAGES.find(x=>x.id===p);$('#pageTitle').textContent=pg.t;$('#pageSub').textContent=pg.sub;
+  const parts=[];const s=curStore();if(s)parts.push('Doʼkon: '+s.name);if(state.seller!=='all')parts.push('Sotuvchi: '+state.seller);if(state.cat!=='all')parts.push('Kategoriya: '+CATS.find(c=>c.id===state.cat).n);
+  $('#scopeNote').textContent=parts.length?'Filtr — '+parts.join(' · '):'Filtr — barcha doʼkonlar';
+  const badge=$('#nav [data-page="brak"] .n');const nNew=CLAIMS.filter(c=>c.status==='new').length;if(badge)badge.textContent=nNew;if(badge&&!nNew)badge.remove();
+  RENDER[p]($('#p-'+p));
+}
+let lastW=0,rt;
+new ResizeObserver(()=>{const w=$('.main').clientWidth;if(w===lastW)return;lastW=w;clearTimeout(rt);rt=setTimeout(render,120);}).observe($('.main'));
+const mq=window.matchMedia('(prefers-color-scheme: dark)');mq.addEventListener?.('change',()=>render());
+new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+buildNav();initFilters();
+const h=location.hash.replace('#','');if(PAGES.some(p=>p.id===h))state.page=h;
+lastW=$('.main').clientWidth;
+render();
+})();
+</script>
+
+</body></html>
