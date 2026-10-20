@@ -70,19 +70,56 @@ class ClaimFormController extends Controller
         TelegramBotService $bot,
         string $logNote = 'Web forma orqali ochildi'
     ): array {
-        $data = $request->validate([
-            'activation_ids' => 'required|array|min:1',
-            'activation_ids.*' => 'integer',
-            'reason' => 'required|string|max:80',
-            'description' => 'required|string|min:10|max:2000',
-            'address' => 'nullable|string|max:500',
-            'photos' => 'nullable|array|max:5',
-            'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:51200',
-        ]);
+        // Yangi format: items[] — har mahsulot uchun sabab/muammo/rasm/miqdor
+        // Eski format: activation_ids + umumiy reason/description (web forma)
+        $hasItems = $request->has('items');
 
-        $activationIds = array_values(array_unique(array_map('intval', $data['activation_ids'])));
-        sort($activationIds);
+        if ($hasItems) {
+            $data = $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.activation_id' => 'required|integer',
+                'items.*.qty' => 'required|integer|min:1|max:9999',
+                'items.*.reason' => 'required|string|max:80',
+                'items.*.description' => 'required|string|min:10|max:2000',
+                'items.*.photos' => 'nullable|array|max:20',
+                'items.*.photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:51200',
+                'address' => 'nullable|string|max:500',
+                'address_lat' => 'nullable|numeric|between:-90,90',
+                'address_lng' => 'nullable|numeric|between:-180,180',
+            ]);
+            $itemRows = collect($data['items'])->map(fn ($row) => [
+                'activation_id' => (int) $row['activation_id'],
+                'qty' => (int) $row['qty'],
+                'reason' => (string) $row['reason'],
+                'description' => (string) $row['description'],
+            ])->values();
+        } else {
+            $data = $request->validate([
+                'activation_ids' => 'required|array|min:1',
+                'activation_ids.*' => 'integer',
+                'activation_qtys' => 'nullable|array',
+                'activation_qtys.*' => 'integer|min:1|max:9999',
+                'reason' => 'required|string|max:80',
+                'description' => 'required|string|min:10|max:2000',
+                'address' => 'nullable|string|max:500',
+                'address_lat' => 'nullable|numeric|between:-90,90',
+                'address_lng' => 'nullable|numeric|between:-180,180',
+                'photos' => 'nullable|array|max:20',
+                'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:51200',
+            ]);
+            $qtyMap = [];
+            foreach (($data['activation_qtys'] ?? []) as $aid => $q) {
+                $qtyMap[(int) $aid] = max(1, (int) $q);
+            }
+            $itemRows = collect($data['activation_ids'])->map(fn ($id) => [
+                'activation_id' => (int) $id,
+                'qty' => $qtyMap[(int) $id] ?? 1,
+                'reason' => (string) $data['reason'],
+                'description' => (string) $data['description'],
+            ])->unique('activation_id')->values();
+        }
 
+        $activationIds = $itemRows->pluck('activation_id')->unique()->sort()->values()->all();
         $activations = Activation::query()
             ->with(['order', 'orderItem', 'order.shop', 'order.seller'])
             ->whereIn('id', $activationIds)
@@ -92,15 +129,25 @@ class ClaimFormController extends Controller
                     $q->orWhere('customer_id', $botUser->customer_id);
                 }
             })
-            ->get();
+            ->get()
+            ->keyBy('id');
 
-        if ($activations->isEmpty() || $activations->count() !== count($activationIds)) {
+        if ($activations->count() !== count($activationIds)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'activation_ids' => 'Mahsulot(lar) topilmadi yoki ruxsat yoʼq.',
+                'items' => 'Mahsulot(lar) topilmadi yoki ruxsat yoʼq.',
             ]);
         }
 
-        // Ikki marta bosish — oxirgi 45 soniyadagi bir xil so‘rovni qayta yaratmaslik
+        foreach ($itemRows as $i => $row) {
+            $activation = $activations->get($row['activation_id']);
+            $max = max(1, (int) round((float) ($activation?->orderItem?->quantity ?: 1)));
+            if ($row['qty'] < 1 || $row['qty'] > $max) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "items.$i.qty" => ($activation?->orderItem?->name ?? 'Mahsulot')." uchun miqdor 1–{$max} oraligʻida.",
+                ]);
+            }
+        }
+
         $recent = Claim::query()
             ->with('items')
             ->where('bot_user_id', $botUser->id)
@@ -110,33 +157,25 @@ class ClaimFormController extends Controller
             ->get();
         foreach ($recent as $dup) {
             $dupIds = $dup->items->pluck('activation_id')->filter()->map(fn ($id) => (int) $id)->sort()->values()->all();
-            if ($dupIds === [] && $dup->order_item_id) {
-                $act = Activation::query()->where('order_item_id', $dup->order_item_id)->where('bot_user_id', $botUser->id)->value('id');
-                $dupIds = $act ? [(int) $act] : [];
-            }
-            sort($dupIds);
-            if ($dupIds === $activationIds && (string) $dup->reason === (string) $data['reason']) {
+            if ($dupIds === $activationIds) {
                 return ['claim' => $dup, 'duplicate' => true];
             }
         }
 
-        $byId = $activations->keyBy('id');
-        $ordered = collect($activationIds)->map(fn (int $id) => $byId->get($id))->filter();
+        $address = trim((string) ($data['address'] ?? ''));
+        $lat = isset($data['address_lat']) ? (float) $data['address_lat'] : null;
+        $lng = isset($data['address_lng']) ? (float) $data['address_lng'] : null;
 
-        $paths = [];
-        foreach (array_filter($request->file('photos') ?? []) as $file) {
-            if ($file && $file->isValid()) {
-                $paths[] = $file->store('claims/_tmp', 'public');
-            }
-        }
-
-        $claim = DB::transaction(function () use ($botUser, $ordered, $data, &$paths, $logNote) {
-            /** @var Activation $primary */
-            $primary = $ordered->first();
-            $number = 'QK-'.now()->format('ymd').'-'.Str::upper(Str::random(4));
+        $claim = DB::transaction(function () use ($botUser, $activations, $itemRows, $request, $hasItems, $data, $logNote, $address, $lat, $lng) {
+            $primary = $activations->get($itemRows->first()['activation_id']);
+            $totalBrak = (int) $itemRows->sum('qty');
+            $firstReason = (string) $itemRows->first()['reason'];
+            $summaryDesc = $itemRows->count() === 1
+                ? (string) $itemRows->first()['description']
+                : $itemRows->count().' ta mahsulot · jami '.$totalBrak.' dona brak';
 
             $claim = Claim::query()->create([
-                'number' => $number,
+                'number' => 'QK-'.now()->format('ymd').'-'.Str::upper(Str::random(4)),
                 'customer_id' => $botUser->customer_id,
                 'bot_user_id' => $botUser->id,
                 'order_id' => $primary->order_id,
@@ -144,41 +183,47 @@ class ClaimFormController extends Controller
                 'product_id' => $primary->orderItem?->product_id,
                 'shop_id' => $primary->order?->shop_id,
                 'seller_id' => $primary->order?->seller_id,
-                'reason' => $data['reason'],
-                'description' => $data['description'],
-                'address' => $data['address'] ?? null,
+                'reason' => $firstReason,
+                'description' => $summaryDesc,
+                'address' => $address !== '' ? $address : null,
+                'address_lat' => $lat,
+                'address_lng' => $lng,
+                'replacement_qty' => $totalBrak,
                 'status' => 'new',
                 'photos' => [],
             ]);
 
-            $finalPhotos = [];
-            foreach ($paths as $src) {
-                $ext = pathinfo($src, PATHINFO_EXTENSION);
-                $dest = "claims/{$claim->id}/".Str::random(10).($ext ? '.'.$ext : '');
-                try {
-                    Storage::disk('public')->move($src, $dest);
-                    $finalPhotos[] = $dest;
-                } catch (\Throwable) {
-                    try {
-                        Storage::disk('public')->copy($src, $dest);
-                        $finalPhotos[] = $dest;
-                    } catch (\Throwable) {
+            $allClaimPhotos = [];
+            foreach ($itemRows->values() as $idx => $row) {
+                $activation = $activations->get($row['activation_id']);
+                $itemPhotos = [];
+                $files = $hasItems
+                    ? ($request->file("items.$idx.photos") ?? [])
+                    : ($idx === 0 ? ($request->file('photos') ?? []) : []);
+                foreach (array_filter(is_array($files) ? $files : [$files]) as $file) {
+                    if ($file && $file->isValid()) {
+                        $dest = "claims/{$claim->id}/".Str::random(10).'.'.$file->getClientOriginalExtension();
+                        Storage::disk('public')->put($dest, file_get_contents($file->getRealPath()));
+                        $itemPhotos[] = $dest;
+                        $allClaimPhotos[] = $dest;
                     }
                 }
-            }
-            $paths = [];
-            if ($finalPhotos !== []) {
-                $claim->update(['photos' => $finalPhotos]);
-            }
 
-            foreach ($ordered as $activation) {
                 ClaimItem::query()->create([
                     'claim_id' => $claim->id,
                     'activation_id' => $activation->id,
                     'order_id' => $activation->order_id,
                     'order_item_id' => $activation->order_item_id,
                     'product_id' => $activation->orderItem?->product_id,
+                    'qty' => $row['qty'],
+                    'reason' => $row['reason'],
+                    'description' => $row['description'],
+                    'photos' => $itemPhotos,
                 ]);
+            }
+
+            if ($allClaimPhotos !== []) {
+                $claim->update(['photos' => $allClaimPhotos]);
             }
 
             ClaimStatusLog::query()->create([
@@ -186,30 +231,19 @@ class ClaimFormController extends Controller
                 'from_status' => null,
                 'to_status' => 'new',
                 'note' => $logNote
-                    .($ordered->count() > 1 ? ' ('.$ordered->count().' ta mahsulot)' : ''),
+                    .' ('.$itemRows->count().' mahsulot · '.$totalBrak.' dona)',
             ]);
 
             return $claim;
         });
 
-        foreach ($paths as $src) {
-            try {
-                Storage::disk('public')->delete($src);
-            } catch (\Throwable) {
-            }
-        }
-
         $bot->notifyClaimOpened($claim->fresh([
-            'orderItem',
-            'product',
-            'botUser',
-            'customer',
-            'items.orderItem',
-            'items.product',
+            'orderItem', 'product', 'botUser', 'customer',
+            'items.orderItem', 'items.product',
         ]));
 
         return ['claim' => $claim->fresh([
-            'courier', 'logs', 'items.orderItem', 'product', 'orderItem',
+            'courier', 'logs', 'items.orderItem', 'items.product', 'product', 'orderItem',
         ]), 'duplicate' => false];
     }
 

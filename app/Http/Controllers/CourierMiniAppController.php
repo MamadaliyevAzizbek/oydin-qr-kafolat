@@ -134,8 +134,8 @@ class CourierMiniAppController extends Controller
         if ($c->items->isNotEmpty()) {
             foreach ($c->items as $item) {
                 $products[] = [
-                    'name' => $item->displayName(),
-                    'qty' => (int) ($item->orderItem?->quantity ?: 1),
+                    'name' => $item->product?->name ?? $item->orderItem?->name ?? 'Mahsulot',
+                    'qty' => $item->brakQty(),
                 ];
             }
         } else {
@@ -152,6 +152,8 @@ class CourierMiniAppController extends Controller
             'cust' => $cust,
             'ph' => $phone,
             'address' => $c->address ?: '',
+            'address_lat' => $c->address_lat,
+            'address_lng' => $c->address_lng,
             'reason' => $c->reason ?: '',
             'pickup' => $c->pickupShop?->name ?? $c->shop?->name ?? '—',
             'deadline' => $c->courier_deadline_at?->toIso8601String(),

@@ -198,6 +198,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .drawer h4{margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .drawer .x{border:0;background:var(--surface-2);width:32px;height:32px;border-radius:8px;cursor:pointer;display:grid;place-items:center;flex:none}
 .drawer .actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--line)}
+.drawer .claim-items{display:grid;gap:8px}
+.drawer .claim-item{border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:0 10px 10px}
+.drawer .claim-item summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;font-size:13.5px}
+.drawer .claim-item summary::-webkit-details-marker{display:none}
+.drawer .claim-item summary::after{content:"▾";color:var(--ink-3);font-size:12px}
+.drawer .claim-item[open] summary::after{content:"▴"}
+.drawer .claim-item .flat{color:var(--ink-3);font-size:12.5px;font-variant-numeric:tabular-nums}
+.drawer .claim-map{margin-top:8px;border-radius:10px;overflow:hidden;border:1px solid var(--line);height:160px;background:var(--surface-2);position:relative}
+.drawer .claim-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .chek{border:1px solid var(--line);border-radius:8px;background:var(--surface-2);overflow:hidden}
 .chek>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;user-select:none}
 .chek>summary::-webkit-details-marker{display:none}
@@ -718,7 +727,7 @@ RENDER.home=function(root){
     ${card('Top-5 brak mahsulot','<div id="c-home3"></div>','real · tasdiqlangan brak, dona')}
   </div>`;
   if(DAILY.length&&d.length){
-    lineChart($('#c-home1'),{labels:d.map(r=>r.label),series:[{name:'Cheklar',color:'var(--s1)',values:d.map(r=>r.cheks),area:true},{name:'QR aktivatsiya',color:'var(--s3)',values:d.map(r=>r.akt)}],endLabels:true});
+  lineChart($('#c-home1'),{labels:d.map(r=>r.label),series:[{name:'Cheklar',color:'var(--s1)',values:d.map(r=>r.cheks),area:true},{name:'QR aktivatsiya',color:'var(--s3)',values:d.map(r=>r.akt)}],endLabels:true});
   }
   if(w.total>0){
     columnChart($('#c-home2'),{labels:w.labels,series:[{name:'Tasdiqlangan',color:'var(--s1)',values:w.app},{name:'Rad etilgan',color:'var(--s2)',values:w.rej}]});
@@ -839,7 +848,7 @@ RENDER.brak=function(root){
   </div>
   ${card('Soʼrovlar roʼyxati',`<div class="chips">${[['all','Hammasi',base.length],...Object.keys(STATUS).map(k=>[k,STATUS[k],counts[k]])].map(([k,l,n])=>`<button class="chip" type="button" data-cf="${k}" aria-pressed="${state.claimFilter===k}">${l}<span class="n">${n}</span></button>`).join('')}</div>
   <div class="scroll"><table class="tbl"><thead><tr><th>№ / sana</th><th>Mijoz</th><th>Mahsulot</th><th>Doʼkon / sotuvchi</th><th>Sabab</th><th>Holat</th><th class="num">Ochiq kunlar</th><th>Masʼul</th></tr></thead><tbody>
-  ${rows.map(c=>{const d=daysOpen(c);const over=isOpen(c)&&d>7;return `<tr class="click" data-claim="${c.id}"><td><b>${c.id}</b><small>${dfull(c.date)}</small></td><td>${c.cust}<small>${c.ph}</small></td><td>${c.prod}<small>${c.brand} · ${c.sn}</small></td><td>${storeName(c.st)}<small>${c.seller}</small></td><td>${c.reason}</td><td>${pill(c.status,STATUS[c.status])}</td><td class="num ${over?'up':''}">${isOpen(c)?`<b>${d}</b> kun`:`yopildi ${dstr(c.closed)}`}</td><td>${c.assignee||'<span class="flat">tayinlanmagan</span>'}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Bu filtrda soʼrov yoʼq</td></tr>'}
+  ${rows.map(c=>{const d=daysOpen(c);const over=isOpen(c)&&d>7;const nItems=c.items_n||(c.items&&c.items.length)||0;const sabab=nItems>1?`${nItems} mahsulot`:(c.reason||'—');return `<tr class="click" data-claim="${c.id}"><td><b>${c.id}</b><small>${dfull(c.date)}</small></td><td>${c.cust}<small>${c.ph}</small></td><td>${c.prod}<small>Chek ${c.chek||'—'} · ${c.qty||1} dona brak</small></td><td>${storeName(c.st)}<small>${c.seller}</small></td><td>${sabab}</td><td>${pill(c.status,STATUS[c.status])}</td><td class="num ${over?'up':''}">${isOpen(c)?`<b>${d}</b> kun`:`yopildi ${dstr(c.closed)}`}</td><td>${c.assignee||'<span class="flat">tayinlanmagan</span>'}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Bu filtrda soʼrov yoʼq</td></tr>'}
   </tbody></table></div>`,'qatorni bosing — kartochka ochiladi')}
   ${card('Kuryerlar reytingi',`<div class="scroll"><table class="tbl"><thead><tr><th>Kuryer</th><th>Hudud</th><th class="num">Ochiq</th><th class="num">Yetkazilgan</th><th class="num">Mijoz Ha</th><th class="num">Nizo</th><th class="num">⭐</th><th class="num">Muddat</th><th class="num">Chora</th></tr></thead><tbody>${COURIERS.map(k=>`<tr><td><b>${k.name}</b><small>${k.tg||'—'} · ${k.phone||'—'}</small></td><td>${k.region||'—'}</td><td class="num">${k.open}</td><td class="num">${k.delivered}</td><td class="num">${k.confirmed}</td><td class="num ${k.dispute?'up':''}">${k.dispute}</td><td class="num">${k.rating_avg!=null?`${k.rating_avg} (${k.rating_n||0})`:'—'}</td><td class="num ${k.overdue?'up':''}">${k.overdue}</td><td class="num">${k.sanctions||0}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">Kuryer yoʼq — Xodimlarda yarating</td></tr>'}</tbody></table></div>`,'real · panel-boot')}`;
   const el=$('#c-b1');
@@ -896,10 +905,23 @@ function claimDrawer(c){
   const kaf=c.warranty_ok===false?pill('rejected','Tugagan'):pill('ok','Faol');
   const kafM=c.warranty_months||12;
   const dl=c.deadline?new Date(c.deadline):null;
-  openDrawer(`<div class="dh"><div><h2>${c.id} · ${c.prod}</h2><div style="margin-top:6px">${pill(c.status,STATUS[c.status])} ${isOpen(c)&&daysOpen(c)>7?pill('crit','SLA buzilgan'):''}${c.confirm==='yes'?pill('ok','Mijoz Ha'):c.confirm==='no'?pill('crit','Mijoz Yoʼq'):''}</div></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
-  <div><h4>Mijoz va xarid</h4><dl class="stat"><dt>Mijoz</dt><dd>${c.cust}</dd><dt>Telefon</dt><dd>${c.ph}</dd><dt>Manzil</dt><dd>${c.address||'—'}</dd><dt>Chek</dt><dd>${c.chek} · ${storeName(c.st)}</dd><dt>Sotuvchi</dt><dd>${c.seller}</dd><dt>Kafolat</dt><dd>${kaf} ${kafM} oy</dd></dl></div>
-  <div><h4>Soʼrov</h4><dl class="stat"><dt>Sabab</dt><dd>${c.reason}</dd><dt>Mijoz matni</dt><dd style="font-weight:400">«${c.text||'—'}»</dd><dt>Kuryer</dt><dd>${c.courier||'—'} ${c.courier_phone||''}</dd><dt>Muddat</dt><dd>${dl?dfull(dl):'—'}</dd>${c.rej?`<dt>Rad sababi</dt><dd>${c.rej}</dd>`:''}${c.confirm_reason?`<dt>Nizo sababi</dt><dd>${c.confirm_reason}</dd>`:''}</dl></div>
-  <div><h4>Foto / video (${c.photos||urls.length})</h4>${urls.length?`<div class="photo" data-claim-photos="${c.db_id}" data-lb-urls='${JSON.stringify(urls).replace(/'/g,"&#39;")}'>${urls.map((u,i)=>`<button type="button" data-lb="${i}" aria-label="foto ${i+1}"><img src="${u}" alt="foto ${i+1}"></button>`).join('')}</div>`:'<div class="hint">Mijoz fayl yubormagan</div>'}${c.delivery_photo?`<p class="hint" style="margin-top:8px">Topshirish fotosi:</p><img src="${c.delivery_photo}" alt="delivery" style="max-width:100%;border-radius:8px">`:''}</div>
+  const items=Array.isArray(c.items)&&c.items.length?c.items:[{name:c.prod,qty:c.qty||1,reason:c.reason||'',text:c.text||'',photo_urls:urls}];
+  const itemCards=items.map((it,i)=>{
+    const pu=Array.isArray(it.photo_urls)?it.photo_urls:[];
+    const lb=JSON.stringify(pu).replace(/'/g,"&#39;");
+    return `<details class="claim-item" ${i===0?'open':''}>
+      <summary><b>${it.name||'Mahsulot'}</b><span class="flat">×${it.qty||1} brak</span></summary>
+      <dl class="stat" style="margin-top:8px"><dt>Sabab</dt><dd>${it.reason||'—'}</dd><dt>Muammo</dt><dd style="font-weight:400">«${it.text||'—'}»</dd></dl>
+      ${pu.length?`<div class="photo" data-claim-photos="${c.db_id}-i${i}" data-lb-urls='${lb}'>${pu.map((u,j)=>`<button type="button" data-lb="${j}" aria-label="foto ${j+1}"><img src="${u}" alt="foto ${j+1}"></button>`).join('')}</div>`:'<div class="hint">Rasm yoʼq</div>'}
+    </details>`;
+  }).join('');
+  openDrawer(`<div class="dh"><div><h2>${c.id}</h2><div style="margin-top:6px">${pill(c.status,STATUS[c.status])} ${isOpen(c)&&daysOpen(c)>7?pill('crit','SLA buzilgan'):''}${c.confirm==='yes'?pill('ok','Mijoz Ha'):c.confirm==='no'?pill('crit','Mijoz Yoʼq'):''}</div><p class="hint" style="margin:6px 0 0">Chek ${c.chek||'—'} · ${c.qty||1} dona brak · ${(c.items_n||items.length)} mahsulot</p></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
+  <div><h4>Mijoz va xarid</h4><dl class="stat"><dt>Mijoz</dt><dd>${c.cust}</dd><dt>Telefon</dt><dd>${c.ph}</dd><dt>Manzil</dt><dd>${c.address||'—'}${c.address_lat&&c.address_lng?` <a href="https://maps.google.com/?q=${c.address_lat},${c.address_lng}" target="_blank" rel="noopener">xarita</a>`:''}</dd>${c.address_lat&&c.address_lng?`<dt></dt><dd><div class="claim-map"><iframe title="Manzil" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=${c.address_lat},${c.address_lng}&ll=${c.address_lat},${c.address_lng}&z=17&t=k&hl=uz&output=embed" allowfullscreen></iframe></div></dd>`:''}<dt>Chek</dt><dd>${c.chek} · ${storeName(c.st)}</dd><dt>Sotuvchi</dt><dd>${c.seller}</dd><dt>Kafolat</dt><dd>${kaf} ${kafM} oy</dd></dl></div>
+  <div><h4>Soʼrov</h4>
+    <div class="claim-items">${itemCards}</div>
+    <dl class="stat" style="margin-top:12px"><dt>Kuryer</dt><dd>${c.courier||'—'} ${c.courier_phone||''}</dd><dt>Muddat</dt><dd>${dl?dfull(dl):'—'}</dd>${c.rej?`<dt>Rad sababi</dt><dd>${c.rej}</dd>`:''}${c.confirm_reason?`<dt>Nizo sababi</dt><dd>${c.confirm_reason}</dd>`:''}</dl>
+  </div>
+  ${c.delivery_photo?`<div><h4>Topshirish fotosi</h4><img src="${c.delivery_photo}" alt="delivery" style="max-width:100%;border-radius:8px"></div>`:''}
   <div><h4>Holatlar tarixi</h4><ul class="tl">${tl.map(e=>`<li class="${e.done?'done':''} ${e.now?'now':''}">${e.t}<small>${e.d}</small></li>`).join('')}</ul></div>
   ${acts?`<div class="actions" style="flex-wrap:wrap" data-claim="${c.id}" data-db="${c.db_id||''}">${acts}</div>`:''}`);
 }
@@ -1649,7 +1671,7 @@ document.addEventListener('change',async e=>{
   }catch(e){
     STORES=[];
     initFilters();
-    render();
+render();
     toast('Backend ulanmadi: '+e.message);
   }
 })();

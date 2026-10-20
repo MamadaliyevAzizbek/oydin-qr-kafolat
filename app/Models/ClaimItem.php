@@ -13,7 +13,19 @@ class ClaimItem extends Model
         'order_id',
         'order_item_id',
         'product_id',
+        'qty',
+        'reason',
+        'description',
+        'photos',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'qty' => 'integer',
+            'photos' => 'array',
+        ];
+    }
 
     public function claim(): BelongsTo
     {
@@ -42,8 +54,17 @@ class ClaimItem extends Model
 
     public function displayName(): string
     {
-        return $this->product?->name
+        $name = $this->product?->name
             ?? $this->orderItem?->name
             ?? 'Mahsulot';
+        $brak = max(1, (int) ($this->qty ?: 1));
+
+        return "{$name} ×{$brak}";
+    }
+
+    /** Hisobotlar uchun brak dona. */
+    public function brakQty(): int
+    {
+        return max(1, (int) ($this->qty ?: 1));
     }
 }

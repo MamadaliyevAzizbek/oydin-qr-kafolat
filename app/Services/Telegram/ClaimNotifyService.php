@@ -71,6 +71,8 @@ class ClaimNotifyService
         ];
         // Faqat Kuryer guruhi — rahbariyatga takroriy xabar kerak emas
         $this->sendCourierGroup($claim, "📦 <b>Yangi topshiriq</b> · {$claim->number}\n\n".$body, $btns);
+        // Mijoz lokatsiyasi — faqat kuryer guruhiga (va shaxsiy chatga)
+        $this->sendClaimLocationToCourier($claim);
         // Shaxsiy chatda web_app — guruhda url/startapp
         $this->bot->notifyCourierPersonalMiniApp($claim);
     }
@@ -299,7 +301,7 @@ class ClaimNotifyService
         $lines = $this->productLines($claim);
         $prodBlock = $lines === []
             ? "• Mahsulot — 1 dona"
-            : implode("\n", $lines);
+            : implode("\n\n", $lines);
 
         return "👤 <b>Mijoz</b>\n{$cust}\n{$phone}\n\n"
             ."📍 <b>Manzil</b>\n{$addr}\n\n"
@@ -317,10 +319,12 @@ class ClaimNotifyService
         $claim->loadMissing(['items.orderItem', 'items.product', 'orderItem', 'product']);
         if ($claim->items->isNotEmpty()) {
             return $claim->items->values()->map(function ($item, $i) {
-                $name = method_exists($item, 'displayName') ? $item->displayName() : 'Mahsulot';
-                $qty = (int) ($item->orderItem?->quantity ?: 1);
+                $name = e($item->product?->name ?? $item->orderItem?->name ?? 'Mahsulot');
+                $qty = method_exists($item, 'brakQty') ? $item->brakQty() : max(1, (int) ($item->qty ?: 1));
+                $reason = e(trim((string) ($item->reason ?: '')));
 
-                return '• '.($i + 1).'. '.$name.' — <b>'.$qty.'</b> dona';
+                return '• '.($i + 1).'. <b>'.$name.' ×'.$qty.'</b>'
+                    .($reason !== '' ? "\n  Sabab: {$reason}" : '');
             })->all();
         }
 
@@ -330,7 +334,7 @@ class ClaimNotifyService
         }
         $qty = (int) ($claim->replacement_qty ?: $claim->orderItem?->quantity ?: 1);
 
-        return ['• 1. '.$one.' — <b>'.$qty.'</b> dona'];
+        return ['• 1. <b>'.e($one).' ×'.$qty.'</b>'];
     }
 
     protected function panelLink(): string
@@ -375,6 +379,37 @@ class ClaimNotifyService
             }
         } catch (\Throwable $e) {
             Log::warning('Claim courier group: '.$e->getMessage());
+        }
+    }
+
+    /** Mijoz geo-lokatsiyasi — kuryer guruhiga + kuryer shaxsiy chatiga. */
+    protected function sendClaimLocationToCourier(Claim $claim): void
+    {
+        if ($claim->address_lat === null || $claim->address_lng === null) {
+            return;
+        }
+        $lat = (float) $claim->address_lat;
+        $lng = (float) $claim->address_lng;
+        if (abs($lat) > 90 || abs($lng) > 180) {
+            return;
+        }
+
+        $chat = $this->bot->chatId('courier');
+        if ($chat) {
+            try {
+                $this->bot->sendLocation($chat, $lat, $lng);
+            } catch (\Throwable $e) {
+                Log::warning('Claim location → courier group: '.$e->getMessage());
+            }
+        }
+
+        $tg = trim((string) ($claim->courier?->telegram_id ?? ''));
+        if ($tg !== '') {
+            try {
+                $this->bot->sendLocation($tg, $lat, $lng);
+            } catch (\Throwable $e) {
+                Log::warning('Claim location → courier personal: '.$e->getMessage());
+            }
         }
     }
 

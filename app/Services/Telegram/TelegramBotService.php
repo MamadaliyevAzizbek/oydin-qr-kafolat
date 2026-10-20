@@ -600,24 +600,41 @@ class TelegramBotService
         return $this->publicAppBase().'/shikoyat/'.$token;
     }
 
+    public function sendLocation(string|int $chatId, float $lat, float $lng): array
+    {
+        return $this->api('sendLocation', [
+            'chat_id' => $chatId,
+            'latitude' => $lat,
+            'longitude' => $lng,
+        ]);
+    }
+
     public function notifyClaimOpened(Claim $claim): void
     {
-        $claim->loadMissing(['botUser', 'orderItem', 'product', 'customer', 'items.orderItem', 'items.product']);
+        $claim->loadMissing(['botUser', 'orderItem', 'order', 'product', 'customer', 'items.orderItem', 'items.product']);
         $number = $claim->number;
-        $labels = $claim->productLabels();
-        $productBlock = count($labels) > 1
-            ? "Mahsulotlar (".count($labels)." ta):\n".collect($labels)->map(fn ($n, $i) => ($i + 1).'. '.$n)->implode("\n")
-            : 'Mahsulot: '.($labels[0] ?? 'Mahsulot');
-        $reason = $claim->reason ?? '';
-        $photos = count($claim->photos ?? []);
+        $itemLines = $claim->items->isNotEmpty()
+            ? $claim->items->values()->map(function ($it, $i) {
+                $name = e($it->product?->name ?? $it->orderItem?->name ?? 'Mahsulot');
+                $qty = $it->brakQty();
+                $reason = e(trim((string) ($it->reason ?: '')) ?: '—');
+
+                return ($i + 1).". <b>{$name} ×{$qty}</b>\n   Sabab: {$reason}";
+            })->implode("\n\n")
+            : 'Mahsulot: <b>'.e($claim->productLabels()[0] ?? 'Mahsulot').'</b>';
+        $photos = (int) $claim->items->sum(fn ($it) => count($it->photos ?? []))
+            ?: count($claim->photos ?? []);
+        $addr = trim((string) ($claim->address ?: ''));
+        $totalQty = (int) ($claim->replacement_qty ?: $claim->items->sum(fn ($it) => $it->brakQty()) ?: 1);
 
         if ($claim->botUser?->telegram_id) {
             try {
                 $this->sendMessage(
                     $claim->botUser->telegram_id,
                     "So‘rov ochildi: <b>{$number}</b>\n"
-                    ."{$productBlock}\n"
-                    ."Sabab: {$reason}"
+                    ."{$itemLines}\n"
+                    ."Jami brak: <b>{$totalQty}</b> dona"
+                    .($addr !== '' ? "\nManzil: {$addr}" : '')
                     .($photos ? "\nRasmlar: {$photos} ta" : '')
                     ."\n\nTez orada ko‘rib chiqiladi. Holat yangilanishi shu botda keladi.",
                     ['reply_markup' => $this->mainKeyboard($claim->botUser)]
@@ -632,14 +649,17 @@ class TelegramBotService
             ?: 'Mijoz';
         $phone = $claim->customer?->phone ?: ($claim->botUser?->phone ?? '—');
         $panel = url('/panel#brak');
+        $chek = $claim->order?->order_number ?? '—';
         $text = "Yangi brak so‘rovi <b>{$number}</b>\n"
+            ."Chek: <code>{$chek}</code>\n"
             ."Mijoz: {$cust} · {$phone}\n"
-            ."{$productBlock}\n"
-            ."{$reason}\n"
-            .Str::limit((string) $claim->description, 200)."\n"
+            .($addr !== '' ? "Manzil: {$addr}\n" : '')
+            ."{$itemLines}\n"
+            ."Jami: {$totalQty} dona\n"
             ."<a href=\"{$panel}\">Panelni ochish</a>";
 
-        // Yangi so‘rov — faqat Rahbariyat. Kuryer guruhi faqat kuryer belgilangach.
+        // Yangi so‘rov — faqat Rahbariyat (lokatsiya yo‘q).
+        // Lokatsiya kuryer tanlangach kuryer guruhiga yuboriladi.
         $chat = $this->chatId('management');
         if ($chat) {
             try {
@@ -1181,9 +1201,10 @@ class TelegramBotService
             return;
         }
 
+        $qty = max(1, (int) round((float) ($token->orderItem?->quantity ?: 1)));
         $this->sendMessage(
             $botUser->telegram_id,
-            'Kafolat faollashtirildi ('.$months." oy).\nMahsulot: ".($token->orderItem?->name ?? 'Xarid')
+            'Kafolat faollashtirildi ('.$months." oy).\nMahsulot: ".($token->orderItem?->name ?? 'Xarid')." ×{$qty}"
             ."\n\nYangi chek qo‘shish uchun: rasm yuboring.",
             ['reply_markup' => $this->mainKeyboard($botUser->fresh())]
         );

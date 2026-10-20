@@ -153,6 +153,7 @@ class MiniAppController extends Controller
             ->map(function (Activation $a) {
                 $title = $a->orderItem?->name ?? 'Mahsulot';
                 $chek = $a->order?->order_number ?? '';
+                $qty = max(1, (int) round((float) ($a->orderItem?->quantity ?: 1)));
                 $until = $a->warranty_ends_at?->format('d.m.Y')
                     ?? ($a->activated_at
                         ? $a->activated_at->copy()->addMonths((int) ($a->orderItem?->warranty_months ?: 12))->format('d.m.Y')
@@ -161,9 +162,12 @@ class MiniAppController extends Controller
                 return [
                     'id' => $a->id,
                     'title' => $title,
+                    'qty' => $qty,
                     'chek' => $chek,
+                    'order_id' => $a->order_id,
                     'sub' => implode(' · ', array_filter([
                         $chek !== '' ? 'chek '.$chek : null,
+                        '×'.$qty,
                         $until ? 'kafolat '.$until : null,
                     ])),
                     'search' => mb_strtolower($title.' '.$chek.' '.($a->orderItem?->sku ?? ''), 'UTF-8'),
@@ -273,12 +277,16 @@ class MiniAppController extends Controller
             ])->all()
             : [];
 
+        $itemQty = $c->relationLoaded('items') && $c->items->isNotEmpty()
+            ? (int) $c->items->sum(fn ($i) => max(1, (int) ($i->qty ?: round((float) ($i->orderItem?->quantity ?: 1)))))
+            : max(1, (int) ($c->replacement_qty ?: 1));
+
         return [
             'id' => $c->id,
             'number' => $c->number,
             'status' => $c->status,
             'prod' => $c->productSummary(),
-            'qty' => $c->replacement_qty ?: 1,
+            'qty' => $itemQty,
             'reason' => $c->reason ?? '',
             'date' => $c->created_at?->toIso8601String(),
             'confirm' => $c->customer_confirm,

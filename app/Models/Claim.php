@@ -131,14 +131,26 @@ class Claim extends Model
         return $one ? [$one] : ['Mahsulot'];
     }
 
+    /** Roʻyxat: bitta chek / soʻrov qatori. */
     public function productSummary(): string
     {
-        $labels = $this->productLabels();
-        if (count($labels) <= 1) {
-            return $labels[0] ?? 'Mahsulot';
+        $this->loadMissing(['items', 'order']);
+        $n = $this->items->count();
+        $qty = (int) ($this->replacement_qty ?: $this->items->sum(fn (ClaimItem $i) => $i->brakQty()) ?: 1);
+        if ($n <= 1) {
+            return $this->productLabels()[0] ?? ('Brak ×'.$qty);
         }
 
-        return count($labels).' ta: '.implode('; ', $labels);
+        return $n.' mahsulot · '.$qty.' dona brak';
+    }
+
+    public function totalBrakQty(): int
+    {
+        $this->loadMissing('items');
+
+        return (int) ($this->replacement_qty
+            ?: $this->items->sum(fn (ClaimItem $i) => $i->brakQty())
+            ?: 1);
     }
 
     public function isOpen(): bool

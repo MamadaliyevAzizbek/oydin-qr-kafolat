@@ -40,6 +40,9 @@ html,body{height:var(--vh);margin:0;overflow:hidden;font:14px/1.45 system-ui,-ap
 .row span{color:var(--ink-2)}
 .row b{font-weight:600;word-break:break-word}
 .row a{color:var(--accent);font-weight:600;text-decoration:none}
+.cmap{margin-top:10px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#1a1f28;height:180px;position:relative}
+.cmap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.cmap-link{display:block;margin-top:8px;text-align:center;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none}
 .plist{margin:0;padding:0;list-style:none}
 .plist li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
 .plist li:last-child{border-bottom:0}
@@ -138,12 +141,22 @@ function render(){
     syncBack(true);
     const tel=c.ph?`<a href="tel:${String(c.ph).replace(/[^\d+]/g,'')}">${esc(c.ph)}</a>`:'—';
     const addr=(c.address&&String(c.address).trim())||'';
+    const hasGeo=c.address_lat!=null&&c.address_lng!=null&&!isNaN(Number(c.address_lat))&&!isNaN(Number(c.address_lng));
+    const lat=hasGeo?Number(c.address_lat):null;
+    const lng=hasGeo?Number(c.address_lng):null;
+    const mapsUrl=hasGeo?`https://maps.google.com/?q=${lat},${lng}`:'';
+    const mapEmbed=hasGeo?`https://maps.google.com/maps?q=${lat},${lng}&ll=${lat},${lng}&z=17&t=k&hl=uz&output=embed`:'';
+    const mapBlock=hasGeo
+      ?`<div class="cmap"><iframe title="Manzil" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapEmbed}" allowfullscreen></iframe></div>
+         <a class="cmap-link" href="${mapsUrl}" target="_blank" rel="noopener">📍 Xaritada ochish · ${lat.toFixed(5)}, ${lng.toFixed(5)}</a>`
+      :'';
     body=`<div class="head"><b>${esc(c.number)}</b>${pill(c.status,STATUS[c.status])}</div>
       ${c.deadline?`<p class="meta">Muddat: ${fdt(c.deadline)}</p>`:''}
       <div class="card"><h4>Mijoz</h4>
         <div class="row"><span>Ism</span><b>${esc(c.cust)}</b></div>
         <div class="row"><span>Telefon</span><b>${tel}</b></div>
-        <div class="row"><span>Manzil</span><b>${esc(addr||'—')}</b></div>
+        <div class="row"><span>Manzil</span><b>${esc(addr||'—')}${hasGeo&&!addr?`📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`:''}</b></div>
+        ${mapBlock}
       </div>
       <div class="card"><h4>Mahsulotlar</h4>
         <ul class="plist">${(c.products||[]).map(p=>`<li><span class="n">${esc(p.name)}</span><span class="q">×${p.qty||1}</span></li>`).join('')||'<li>—</li>'}</ul>

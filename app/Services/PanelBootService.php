@@ -58,7 +58,11 @@ class PanelBootService
             // Doʼkonda: sotuvdan keyin 30 daqiqa ichida faollashtirilgan cheklar
             $instOrders = $this->inStoreActivatedCount($oids);
             $units = (float) OrderItem::query()->whereIn('order_id', $oids)->sum('quantity');
-            $brakN = Claim::query()->where('shop_id', $shop->id)->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])->whereBetween('created_at', [$from, $to])->count();
+            $brakN = (float) \App\Models\ClaimItem::query()
+                ->whereHas('claim', fn ($q) => $q->where('shop_id', $shop->id)
+                    ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
+                    ->whereBetween('created_at', [$from, $to]))
+                ->sum('qty');
             $open = Claim::query()->where('shop_id', $shop->id)->whereNotIn('status', Claim::CLOSED)->count();
             $closed = Claim::query()->where('shop_id', $shop->id)->whereNotNull('closed_at')->whereBetween('closed_at', [$from, $to])->get();
             $closeAvg = $closed->count() ? round($closed->avg(fn ($c) => $c->created_at->diffInDays($c->closed_at)), 1) : 0;
@@ -100,11 +104,12 @@ class PanelBootService
             ->pluck('id');
         $aktOrdersAll = Activation::query()->whereIn('order_id', $allOids)->whereNotNull('order_id')->distinct()->count('order_id');
         $unitsAll = (float) OrderItem::query()->whereIn('order_id', $allOids)->sum('quantity');
-        $brakNAll = Claim::query()
-            ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
-            ->whereBetween('created_at', [$from, $to])
-            ->when($shopId, fn ($q) => $q->where('shop_id', $shopId))
-            ->count();
+        $brakNAll = (float) \App\Models\ClaimItem::query()
+            ->whereHas('claim', fn ($q) => $q
+                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
+                ->whereBetween('created_at', [$from, $to])
+                ->when($shopId, fn ($qq) => $qq->where('shop_id', $shopId)))
+            ->sum('qty');
         $tot['akt'] = $tot['cheks'] ? round($aktOrdersAll / $tot['cheks'] * 100, 1) : 0;
         $tot['inst'] = $tot['cheks'] ? round($this->inStoreActivatedCount($allOids) / $tot['cheks'] * 100, 1) : 0;
         $tot['brak'] = $unitsAll > 0 ? round($brakNAll / $unitsAll * 100, 2) : 0;
@@ -624,7 +629,11 @@ class PanelBootService
         $cheks = $oids->count();
         $aktOrders = Activation::query()->whereIn('order_id', $oids)->whereNotNull('order_id')->distinct()->count('order_id');
         $units = (float) OrderItem::query()->whereIn('order_id', $oids)->sum('quantity');
-        $brakN = Claim::query()->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])->whereBetween('created_at', [$from, $to])->count();
+        $brakN = (float) \App\Models\ClaimItem::query()
+            ->whereHas('claim', fn ($q) => $q
+                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
+                ->whereBetween('created_at', [$from, $to]))
+            ->sum('qty');
         $sent = SurveyMessage::query()->whereBetween('sent_at', [$from, $to])->whereIn('status', ['sent', 'delivered', 'answered'])->count();
         $ans = SurveyMessage::query()->whereBetween('answered_at', [$from, $to])->where('status', 'answered')->count();
         $good = SurveyMessage::query()->whereBetween('answered_at', [$from, $to])->where('answer', 'good')->count();
@@ -771,12 +780,19 @@ class PanelBootService
                     ->when($shopId, fn ($qq) => $qq->where('shop_id', $shopId));
             };
 
+            // Soʻrovlar soni (chek) — alohida; brak dona = claim_items.qty yigʻindisi
             $req = Claim::query()->whereBetween('created_at', [$from, $to])->where($claimScope)->count();
-            $brak = Claim::query()
-                ->whereBetween('created_at', [$from, $to])
-                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
-                ->where($claimScope)
-                ->count();
+            $brak = (float) \App\Models\ClaimItem::query()
+                ->whereHas('claim', function ($q) use ($from, $to, $claimScope) {
+                    $q->whereBetween('created_at', [$from, $to])
+                        ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
+                        ->where($claimScope);
+                })
+                ->where(function ($q) use ($name) {
+                    $q->whereHas('orderItem', fn ($oi) => $oi->where('name', $name))
+                        ->orWhereHas('product', fn ($p) => $p->where('name', $name));
+                })
+                ->sum('qty');
 
             $costSum = (float) Claim::query()
                 ->where('status', 'done')
@@ -808,11 +824,17 @@ class PanelBootService
                 ->get()
                 ->sum(fn (Activation $a) => (float) ($a->orderItem?->quantity ?? 1));
 
-            $prevBrak = Claim::query()
-                ->whereBetween('created_at', [$prevFrom, $prevTo])
-                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
-                ->where($claimScope)
-                ->count();
+            $prevBrak = (float) \App\Models\ClaimItem::query()
+                ->whereHas('claim', function ($q) use ($prevFrom, $prevTo, $claimScope) {
+                    $q->whereBetween('created_at', [$prevFrom, $prevTo])
+                        ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
+                        ->where($claimScope);
+                })
+                ->where(function ($q) use ($name) {
+                    $q->whereHas('orderItem', fn ($oi) => $oi->where('name', $name))
+                        ->orWhereHas('product', fn ($p) => $p->where('name', $name));
+                })
+                ->sum('qty');
             $prevRate = $prevSold > 0 ? $prevBrak / $prevSold * 100 : 0.0;
             $diff = $rate - $prevRate;
             $tr = abs($diff) < 0.15 ? 0 : ($diff > 0 ? 1 : -1);
@@ -926,6 +948,7 @@ class PanelBootService
 
     public function panelClaimRow(Claim $c): array
     {
+        $c->loadMissing(['items.orderItem', 'items.product']);
         $photos = array_values(array_filter($c->photos ?? []));
         $photoUrls = array_map(fn ($p) => asset('storage/'.$p), $photos);
         $months = (int) ($c->orderItem?->warranty_months ?: $c->product?->warranty_months ?: 12);
@@ -946,6 +969,23 @@ class PanelBootService
             ])->all()
             : [];
 
+        $items = $c->items->map(function ($it) {
+            $urls = array_map(fn ($p) => asset('storage/'.$p), array_values(array_filter($it->photos ?? [])));
+
+            return [
+                'id' => $it->id,
+                'name' => $it->product?->name ?? $it->orderItem?->name ?? 'Mahsulot',
+                'qty' => $it->brakQty(),
+                'reason' => $it->reason ?? '',
+                'text' => $it->description ?? '',
+                'photos' => count($urls),
+                'photo_urls' => $urls,
+            ];
+        })->values()->all();
+
+        $itemPhotoCount = array_sum(array_column($items, 'photos'));
+        $totalQty = (int) ($c->replacement_qty ?: array_sum(array_column($items, 'qty')) ?: 1);
+
         return [
             'id' => $c->number,
             'db_id' => $c->id,
@@ -958,6 +998,8 @@ class PanelBootService
             'ph' => $c->customer?->phone ?? $c->botUser?->phone ?? '—',
             'prod' => $c->productSummary(),
             'prods' => $c->productLabels(),
+            'items' => $items,
+            'items_n' => count($items),
             'brand' => $c->product?->brand ?? $c->orderItem?->brand ?? '—',
             'sn' => $c->orderItem?->serial_number ?: '—',
             'st' => (string) ($c->shop_id ?? ''),
@@ -968,10 +1010,12 @@ class PanelBootService
             'status' => $c->status,
             'assignee' => $c->assignee?->name ?? '',
             'assignee_id' => $c->assignee_id,
-            'photos' => count($photos),
+            'photos' => $itemPhotoCount ?: count($photos),
             'photo_urls' => $photoUrls,
             'photos_viewed' => (bool) $c->photos_viewed_at,
             'address' => $c->address ?? '',
+            'address_lat' => $c->address_lat,
+            'address_lng' => $c->address_lng,
             'courier_id' => $c->courier_id,
             'courier' => $c->courier?->name ?? '',
             'courier_phone' => $c->courier?->phone ?? '',
@@ -984,7 +1028,7 @@ class PanelBootService
             'confirm' => $c->customer_confirm,
             'courier_rating' => $c->courier_rating,
             'confirm_reason' => $c->confirm_reason,
-            'qty' => $c->replacement_qty ?: 1,
+            'qty' => $totalQty,
             'pickup_shop' => $c->pickupShop?->name ?? $c->shop?->name ?? '—',
             'pickup_shop_id' => $c->pickup_shop_id,
             'problem_note' => $c->problem_note,

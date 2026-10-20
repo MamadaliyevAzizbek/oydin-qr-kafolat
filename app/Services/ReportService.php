@@ -327,14 +327,15 @@ class ReportService
             ->get();
 
         $rows = $items->map(function ($i) use ($p, $threshold) {
-            $brak = Claim::query()
-                ->whereBetween('created_at', [$p['from'], $p['to']])
-                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
+            $brak = (float) \App\Models\ClaimItem::query()
+                ->whereHas('claim', fn ($q) => $q
+                    ->whereBetween('created_at', [$p['from'], $p['to']])
+                    ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered']))
                 ->where(function ($q) use ($i) {
                     $q->whereHas('orderItem', fn ($oi) => $oi->where('name', $i->name))
-                        ->orWhereHas('items.orderItem', fn ($oi) => $oi->where('name', $i->name));
+                        ->orWhereHas('product', fn ($p) => $p->where('name', $i->name));
                 })
-                ->count();
+                ->sum('qty');
             $sold = (float) $i->sold;
             $pct = $sold > 0 ? round($brak / $sold * 100, 2) : 0;
 

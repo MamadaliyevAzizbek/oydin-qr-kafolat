@@ -259,8 +259,9 @@ class ReceiptActivationService
             $lines = $order->items->map(function ($item) use ($existing) {
                 $a = $existing->firstWhere('order_item_id', $item->id);
                 $until = optional($a?->warranty_ends_at)->format('d.m.Y') ?? '—';
+                $qty = max(1, (int) round((float) ($item->quantity ?: 1)));
 
-                return "• {$item->name}\n  Kafolat: {$until} (allaqachon faol)";
+                return "• {$item->name} ×{$qty}\n  Kafolat: {$until} (allaqachon faol)";
             })->all();
 
             return [
@@ -333,7 +334,8 @@ class ReceiptActivationService
 
             $activated++;
             $until = now()->addMonths($months)->format('d.m.Y');
-            $lines[] = "• {$item->name}\n  Kafolat: {$until} ({$months} oy)";
+            $qty = max(1, (int) round((float) ($item->quantity ?: 1)));
+            $lines[] = "• {$item->name} ×{$qty}\n  Kafolat: {$until} ({$months} oy)";
         }
 
         if (! $order->customer_id && $botUser->customer_id) {
