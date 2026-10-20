@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClaimStatusLog extends Model
 {
-    protected $fillable = ['claim_id', 'from_status', 'to_status', 'user_id', 'note'];
+    protected $fillable = ['claim_id', 'from_status', 'to_status', 'user_id', 'actor', 'source', 'note'];
 
     public function claim(): BelongsTo
     {

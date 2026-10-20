@@ -82,6 +82,9 @@ class StaffController extends Controller
             'role_id' => 'required|exists:roles,id',
             'is_active' => 'sometimes|boolean',
             'shop_id' => 'nullable|exists:shops,id',
+            'telegram_id' => 'nullable|string|max:64',
+            'phone' => 'nullable|string|max:32',
+            'region' => 'nullable|string|max:120',
         ]);
 
         $login = trim($data['login']);
@@ -101,6 +104,9 @@ class StaffController extends Controller
             'role_id' => $role->id,
             'role' => $role->slug,
             'shop_id' => $data['shop_id'] ?? null,
+            'telegram_id' => $data['telegram_id'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'region' => $data['region'] ?? null,
             'is_active' => $data['is_active'] ?? true,
             'email_verified_at' => now(),
         ]);
@@ -117,6 +123,9 @@ class StaffController extends Controller
             'role_id' => 'required|exists:roles,id',
             'is_active' => 'sometimes|boolean',
             'shop_id' => 'nullable|exists:shops,id',
+            'telegram_id' => 'nullable|string|max:64',
+            'phone' => 'nullable|string|max:32',
+            'region' => 'nullable|string|max:120',
         ]);
 
         $login = trim($data['login']);
@@ -146,6 +155,9 @@ class StaffController extends Controller
             'role_id' => $role->id,
             'role' => $role->slug,
             'shop_id' => $data['shop_id'] ?? null,
+            'telegram_id' => $data['telegram_id'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'region' => $data['region'] ?? null,
         ];
         if (array_key_exists('is_active', $data)) {
             if ((int) $user->id === (int) auth()->id() && ! $data['is_active']) {
@@ -220,6 +232,9 @@ class StaffController extends Controller
             'is_active' => (bool) $u->is_active,
             'shop_id' => $u->shop_id,
             'shop_name' => $u->shop?->name,
+            'telegram_id' => $u->telegram_id,
+            'phone' => $u->phone,
+            'region' => $u->region,
             'is_self' => (int) $u->id === (int) auth()->id(),
         ];
     }

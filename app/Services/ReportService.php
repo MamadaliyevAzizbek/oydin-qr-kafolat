@@ -72,11 +72,11 @@ class ReportService
         $sat = $surveysAnswered > 0 ? round($good / $surveysAnswered * 100, 1) : 0;
 
         $units = (float) OrderItem::query()->whereIn('order_id', $orderIds)->sum('quantity');
-        $approvedClaims = Claim::query()->whereIn('status', ['approved', 'replaced'])
+        $approvedClaims = Claim::query()->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
             ->whereBetween('created_at', [$p['from'], $p['to']])->count();
         $brak = $units > 0 ? round($approvedClaims / $units * 100, 2) : 0;
 
-        $openClaims = Claim::query()->whereNotIn('status', ['rejected', 'replaced'])->count();
+        $openClaims = Claim::query()->whereNotIn('status', Claim::CLOSED)->count();
         $closed = Claim::query()->whereNotNull('closed_at')->whereBetween('closed_at', [$p['from'], $p['to']])->get();
         $avgClose = $closed->count()
             ? round($closed->avg(fn ($c) => $c->created_at->diffInDays($c->closed_at)), 1)
@@ -106,7 +106,7 @@ class ReportService
             ->select('order_items.name', DB::raw('count(*) as c'))
             ->leftJoin('order_items', 'order_items.id', '=', 'claims.order_item_id')
             ->whereBetween('claims.created_at', [$p['from'], $p['to']])
-            ->whereIn('claims.status', ['approved', 'replaced', 'review', 'new'])
+            ->whereIn('claims.status', ['approved', 'done', 'assigned', 'en_route', 'delivered', 'review', 'new'])
             ->groupBy('order_items.name')
             ->orderByDesc('c')
             ->limit(5)
@@ -115,7 +115,7 @@ class ReportService
 
         $slaClaims = Claim::query()
             ->with(['customer', 'shop'])
-            ->whereNotIn('status', ['rejected', 'replaced'])
+            ->whereNotIn('status', Claim::CLOSED)
             ->where('created_at', '<=', now()->subDays(7))
             ->orderBy('created_at')
             ->limit(20)
@@ -308,7 +308,7 @@ class ReportService
             'review' => Claim::where('status', 'review')->count(),
             'approved' => Claim::where('status', 'approved')->count(),
             'rejected' => Claim::where('status', 'rejected')->count(),
-            'replaced' => Claim::where('status', 'replaced')->count(),
+            'done' => Claim::where('status', 'done')->count(),
         ];
 
         return ['claims' => $rows, 'counts' => $counts];
@@ -329,7 +329,7 @@ class ReportService
         $rows = $items->map(function ($i) use ($p, $threshold) {
             $brak = Claim::query()
                 ->whereBetween('created_at', [$p['from'], $p['to']])
-                ->whereIn('status', ['approved', 'replaced'])
+                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
                 ->where(function ($q) use ($i) {
                     $q->whereHas('orderItem', fn ($oi) => $oi->where('name', $i->name))
                         ->orWhereHas('items.orderItem', fn ($oi) => $oi->where('name', $i->name));

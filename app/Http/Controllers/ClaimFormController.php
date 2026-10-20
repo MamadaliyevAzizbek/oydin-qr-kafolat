@@ -49,16 +49,39 @@ class ClaimFormController extends Controller
     {
         $botUser = $this->resolveBotUser($token);
 
+        try {
+            $result = $this->createClaimFromRequest($request, $botUser, $bot, 'Web forma orqali ochildi');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        }
+
+        return redirect()
+            ->route('claim.thanks', ['token' => $token, 'number' => $result['claim']->number])
+            ->with('ok', true)
+            ->with('numbers', [$result['claim']->number]);
+    }
+
+    /**
+     * @return array{claim: Claim, duplicate: bool}
+     */
+    public function createClaimFromRequest(
+        Request $request,
+        BotUser $botUser,
+        TelegramBotService $bot,
+        string $logNote = 'Web forma orqali ochildi'
+    ): array {
         $data = $request->validate([
             'activation_ids' => 'required|array|min:1',
             'activation_ids.*' => 'integer',
             'reason' => 'required|string|max:80',
             'description' => 'required|string|min:10|max:2000',
+            'address' => 'nullable|string|max:500',
             'photos' => 'nullable|array|max:5',
             'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:51200',
         ]);
 
         $activationIds = array_values(array_unique(array_map('intval', $data['activation_ids'])));
+        sort($activationIds);
 
         $activations = Activation::query()
             ->with(['order', 'orderItem', 'order.shop', 'order.seller'])
@@ -72,12 +95,31 @@ class ClaimFormController extends Controller
             ->get();
 
         if ($activations->isEmpty() || $activations->count() !== count($activationIds)) {
-            return back()
-                ->withErrors(['activation_ids' => 'Mahsulot(lar) topilmadi yoki ruxsat yoʼq.'])
-                ->withInput();
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'activation_ids' => 'Mahsulot(lar) topilmadi yoki ruxsat yoʼq.',
+            ]);
         }
 
-        // Tanlash tartibini saqlash
+        // Ikki marta bosish — oxirgi 45 soniyadagi bir xil so‘rovni qayta yaratmaslik
+        $recent = Claim::query()
+            ->with('items')
+            ->where('bot_user_id', $botUser->id)
+            ->where('created_at', '>=', now()->subSeconds(45))
+            ->latest('id')
+            ->limit(5)
+            ->get();
+        foreach ($recent as $dup) {
+            $dupIds = $dup->items->pluck('activation_id')->filter()->map(fn ($id) => (int) $id)->sort()->values()->all();
+            if ($dupIds === [] && $dup->order_item_id) {
+                $act = Activation::query()->where('order_item_id', $dup->order_item_id)->where('bot_user_id', $botUser->id)->value('id');
+                $dupIds = $act ? [(int) $act] : [];
+            }
+            sort($dupIds);
+            if ($dupIds === $activationIds && (string) $dup->reason === (string) $data['reason']) {
+                return ['claim' => $dup, 'duplicate' => true];
+            }
+        }
+
         $byId = $activations->keyBy('id');
         $ordered = collect($activationIds)->map(fn (int $id) => $byId->get($id))->filter();
 
@@ -88,7 +130,7 @@ class ClaimFormController extends Controller
             }
         }
 
-        $claim = DB::transaction(function () use ($botUser, $ordered, $data, &$paths) {
+        $claim = DB::transaction(function () use ($botUser, $ordered, $data, &$paths, $logNote) {
             /** @var Activation $primary */
             $primary = $ordered->first();
             $number = 'QK-'.now()->format('ymd').'-'.Str::upper(Str::random(4));
@@ -104,6 +146,7 @@ class ClaimFormController extends Controller
                 'seller_id' => $primary->order?->seller_id,
                 'reason' => $data['reason'],
                 'description' => $data['description'],
+                'address' => $data['address'] ?? null,
                 'status' => 'new',
                 'photos' => [],
             ]);
@@ -142,7 +185,7 @@ class ClaimFormController extends Controller
                 'claim_id' => $claim->id,
                 'from_status' => null,
                 'to_status' => 'new',
-                'note' => 'Web forma orqali ochildi'
+                'note' => $logNote
                     .($ordered->count() > 1 ? ' ('.$ordered->count().' ta mahsulot)' : ''),
             ]);
 
@@ -165,10 +208,9 @@ class ClaimFormController extends Controller
             'items.product',
         ]));
 
-        return redirect()
-            ->route('claim.thanks', ['token' => $token, 'number' => $claim->number])
-            ->with('ok', true)
-            ->with('numbers', [$claim->number]);
+        return ['claim' => $claim->fresh([
+            'courier', 'logs', 'items.orderItem', 'product', 'orderItem',
+        ]), 'duplicate' => false];
     }
 
     public function thanks(string $token, Request $request): View

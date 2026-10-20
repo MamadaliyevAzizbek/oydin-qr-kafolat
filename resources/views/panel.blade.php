@@ -133,7 +133,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .ibar.low b i{background:var(--crit)}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px 2px 7px;border-radius:999px;font-size:11.5px;font-weight:500;white-space:nowrap;background:var(--surface-2);border:1px solid var(--line);color:var(--ink)}
 .pill i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
-.pill.new i{background:var(--s1)} .pill.review i{background:var(--warn)} .pill.approved i{background:var(--accent)} .pill.replaced i{background:var(--good)} .pill.rejected i{background:var(--ink-3)}
+.pill.new i{background:var(--s1)} .pill.review i{background:var(--warn)} .pill.approved i{background:var(--accent)} .pill.replaced i,.pill.done i{background:var(--good)} .pill.rejected i{background:var(--ink-3)} .pill.assigned i,.pill.en_route i{background:var(--s3)} .pill.delivered i{background:var(--amber,#f2a900)} .pill.dispute i{background:var(--crit)} .pill.unconfirmed i{background:var(--ink-3)}
 .pill.crit{background:var(--crit-bg);border-color:transparent;color:var(--crit)} .pill.crit i{background:var(--crit)}
 .pill.ok{background:var(--good-bg);border-color:transparent;color:var(--good)} .pill.ok i{background:var(--good)}
 .pill.warn{background:var(--warn-bg);border-color:transparent;color:var(--warn)} .pill.warn i{background:var(--warn)}
@@ -244,9 +244,29 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   .filters select{min-width:120px}
   .scroll{margin:0 -16px;padding:0 16px}
 }
+/* Kuryer login — faqat telefon UI, bitta sahifa scroll */
+html:has(.app.courier-ui),
+html:has(.app.courier-ui) body{height:auto;overflow:auto;overscroll-behavior:auto}
+.app.courier-ui{grid-template-columns:1fr;min-height:100dvh;height:auto;overflow:visible}
+.app.courier-ui .side,
+.app.courier-ui .top,
+.app.courier-ui .meta{display:none!important}
+.app.courier-ui .main{padding:0;overflow:visible;min-height:100dvh}
+.app.courier-ui #p-kuryer{padding:0;overflow:visible}
+.app.courier-ui .phone-wrap{display:block;min-height:0;overflow:visible}
+.app.courier-ui .phone-wrap .side-note{display:none!important}
+.app.courier-ui .phone{width:100%;max-width:none;border:0;border-radius:0;box-shadow:none;min-height:0;height:auto;overflow:visible}
+.app.courier-ui .phone .scr{display:block;height:auto!important;min-height:0;max-height:none!important;overflow:visible}
+.app.courier-ui .phone .bar{position:sticky;top:0;z-index:5}
+.app.courier-ui .phone .body,
+.app.courier-ui .phone .body.cdet-body{flex:none;height:auto!important;max-height:none!important;overflow:visible!important;-webkit-overflow-scrolling:auto}
+.app.courier-ui .phone .bar a.cout{font-size:12.5px;color:var(--ink-3);text-decoration:underline}
+.app.courier-ui .cdet .cd-dock{position:sticky;bottom:0;margin:16px 0 0;padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px))}
+.app.courier-ui .cdet .cd-photos{overflow-x:auto;overflow-y:hidden}
 </style>
+<link rel="stylesheet" href="/css/jarayon.css">
 
-<div class="app">
+<div class="app{{ auth()->user()?->isCourier() ? ' courier-ui' : '' }}">
   <aside class="side">
     <div class="brand">
       <div class="mark" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M11.5 1 4 11h5l-.5 8L16 8h-5z"/></svg></div>
@@ -285,6 +305,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <section class="page" id="p-sifat" hidden></section>
     <section class="page" id="p-sotuvchilar" hidden></section>
     <section class="page" id="p-tizim" hidden></section>
+    <section class="page" id="p-kuryer" hidden></section>
+    <section class="page" id="p-miniapp" hidden></section>
     <section class="page" id="p-xabarnomalar" hidden></section>
     <section class="page" id="p-bot" hidden></section>
     <section class="page" id="p-xodimlar" hidden></section>
@@ -358,9 +380,12 @@ function syncBrakThresholdFromAlerts(){
   THRESHOLD=parseBrakThreshold(raw);
 }
 let SELLERS=[];
-const STATUS={new:'Yangi',review:'Koʼrib chiqilmoqda',approved:'Tasdiqlangan',replaced:'Almashtirildi',rejected:'Rad etilgan'};
+const STATUS={new:'Yangi',review:'Koʼrib chiqilmoqda',approved:'Tasdiqlangan',assigned:'Kuryer belgilandi',en_route:'Yoʼlda',delivered:'Kuryer yetkazdi',done:'Yakunlandi',rejected:'Rad etilgan',dispute:'Nizo',unconfirmed:'Tasdiqsiz yopildi'};
+const CLOSED=new Set(['done','rejected','unconfirmed']);
+const COURIER_OPEN=new Set(['assigned','en_route']);
 let CLAIMS=[];
-const isOpen=c=>['new','review','approved'].includes(c.status);
+const isOpen=c=>!CLOSED.has(c.status);
+const isCourierOpen=c=>COURIER_OPEN.has(c.status);
 const daysOpen=c=>daysBetween(c.date,c.closed||TODAY);
 let CUSTOMERS=[];
 let TOUCH=[
@@ -378,7 +403,8 @@ let COMMENTS=[];
 let DAILY=[];
 
 /* ---------- Holat ---------- */
-const state={page:'home',period:'30',store:'all',seller:'all',cat:'all',claimFilter:'all',qView:'product',search:''};
+const state={page:'home',period:'30',store:'all',seller:'all',cat:'all',claimFilter:'all',qView:'product',search:'',cTab:'new',cSel:null,cour:null,tmp:{}};
+let COURIERS=[];
 const P=()=>PERIODS[state.period];
 const curStore=()=>state.store==='all'?null:STORES.find(s=>s.id===state.store);
 const share=()=>{const s=curStore();return s?s.cheks/TOT.cheks:1;};
@@ -612,14 +638,7 @@ document.addEventListener('keydown',e=>{
   }
   if(e.key==='Escape') closeDrawer();
 });
-$('#drawer').addEventListener('click',e=>{
-  const btn=e.target.closest('[data-lb]');
-  if(!btn) return;
-  e.preventDefault();
-  let urls=[];
-  try{urls=JSON.parse(btn.closest('[data-lb-urls]')?.getAttribute('data-lb-urls')||'[]');}catch(_){urls=[];}
-  openLightbox(urls,Number(btn.dataset.lb)||0);
-});
+/* Foto lightbox — photos_viewed drawer handlerida (pastda) belgilanishi bilan birga */
 
 /* ---------- Seriya tayyorlash ---------- */
 function daily(){
@@ -654,7 +673,7 @@ const weeks=()=>{
     const inRange=(t,start,end)=>{if(!t)return false;const x=t instanceof Date?t:new Date(t);return x>=start&&x<=end;};
     inn=labels.map(lab=>{const {start,end}=parseLab(lab);return CLAIMS.filter(c=>c.st===state.store&&inRange(c.date,start,end)).length;});
     out=labels.map(lab=>{const {start,end}=parseLab(lab);return CLAIMS.filter(c=>c.st===state.store&&c.closed&&inRange(c.closed,start,end)).length;});
-    app=labels.map(lab=>{const {start,end}=parseLab(lab);return CLAIMS.filter(c=>c.st===state.store&&['approved','replaced'].includes(c.status)&&inRange(c.closed||c.date,start,end)).length;});
+    app=labels.map(lab=>{const {start,end}=parseLab(lab);return CLAIMS.filter(c=>c.st===state.store&&['approved','done','assigned','en_route','delivered'].includes(c.status)&&inRange(c.closed||c.date,start,end)).length;});
     rej=labels.map(lab=>{const {start,end}=parseLab(lab);return CLAIMS.filter(c=>c.st===state.store&&c.status==='rejected'&&inRange(c.closed||c.date,start,end)).length;});
   }
 
@@ -768,7 +787,7 @@ RENDER.mijozlar=function(root){
   </div>
   ${card('Mijozlar roʼyxati',`<div class="chips" style="justify-content:space-between"><label class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg><input id="custSearch" placeholder="Ism yoki telefon raqami" value="${state.search}" aria-label="Mijoz qidirish"></label><span class="hint">${rows.length} ta · qatorni bosing — kartochka ochiladi</span></div>
   <div class="scroll"><table class="tbl"><thead><tr><th>Mijoz</th><th>Roʼyxatdan oʼtgan</th><th class="num">Xaridlar</th><th class="num">Jami summa</th><th>Oxirgi xarid</th><th class="num">Faol kafolatlar</th><th class="num">Brak soʼrovlari</th><th>Segment</th></tr></thead><tbody>
-  ${rows.map((c,i)=>`<tr class="click" data-cust="${c.n}"><td><b>${c.n}</b><small>${c.ph}</small></td><td>${c.reg}</td><td class="num">${c.x}</td><td class="num">${money(c.sum)}</td><td>${c.last}<small>${storeName(c.lastSt)}</small></td><td class="num">${c.kaf}</td><td class="num">${CLAIMS.filter(k=>k.cust===c.n).length}</td><td>${pill(c.seg==='Uxlagan'?'rejected':c.seg==='Yangi'?'new':'replaced',c.seg)}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Topilmadi</td></tr>'}
+  ${rows.map((c,i)=>`<tr class="click" data-cust="${c.n}"><td><b>${c.n}</b><small>${c.ph}</small></td><td>${c.reg}</td><td class="num">${c.x}</td><td class="num">${money(c.sum)}</td><td>${c.last}<small>${storeName(c.lastSt)}</small></td><td class="num">${c.kaf}</td><td class="num">${CLAIMS.filter(k=>k.cust===c.n).length}</td><td>${pill(c.seg==='Uxlagan'?'rejected':c.seg==='Yangi'?'new':'done',c.seg)}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Topilmadi</td></tr>'}
   </tbody></table></div>`)}`;
   columnChart($('#c-m1'),{labels:MONTHS,series:[{name:'Yangi mijozlar',color:'var(--s1)',values:M_NEW.map(v=>Math.round(v*sh))}],labelTop:false});
   barChartH($('#c-m2'),{items:[{label:'Yangi (1 xarid)',value:seg.yangi||0},{label:'Doimiy (2+ xarid)',value:seg.doimiy||0},{label:'Uxlagan (90 kun)',value:seg.uxlagan||0}],rowH:36,thick:16,valueName:'Mijozlar'});
@@ -821,18 +840,25 @@ RENDER.brak=function(root){
   ${card('Soʼrovlar roʼyxati',`<div class="chips">${[['all','Hammasi',base.length],...Object.keys(STATUS).map(k=>[k,STATUS[k],counts[k]])].map(([k,l,n])=>`<button class="chip" type="button" data-cf="${k}" aria-pressed="${state.claimFilter===k}">${l}<span class="n">${n}</span></button>`).join('')}</div>
   <div class="scroll"><table class="tbl"><thead><tr><th>№ / sana</th><th>Mijoz</th><th>Mahsulot</th><th>Doʼkon / sotuvchi</th><th>Sabab</th><th>Holat</th><th class="num">Ochiq kunlar</th><th>Masʼul</th></tr></thead><tbody>
   ${rows.map(c=>{const d=daysOpen(c);const over=isOpen(c)&&d>7;return `<tr class="click" data-claim="${c.id}"><td><b>${c.id}</b><small>${dfull(c.date)}</small></td><td>${c.cust}<small>${c.ph}</small></td><td>${c.prod}<small>${c.brand} · ${c.sn}</small></td><td>${storeName(c.st)}<small>${c.seller}</small></td><td>${c.reason}</td><td>${pill(c.status,STATUS[c.status])}</td><td class="num ${over?'up':''}">${isOpen(c)?`<b>${d}</b> kun`:`yopildi ${dstr(c.closed)}`}</td><td>${c.assignee||'<span class="flat">tayinlanmagan</span>'}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Bu filtrda soʼrov yoʼq</td></tr>'}
-  </tbody></table></div>`,'qatorni bosing — kartochka ochiladi')}`;
+  </tbody></table></div>`,'qatorni bosing — kartochka ochiladi')}
+  ${card('Kuryerlar reytingi',`<div class="scroll"><table class="tbl"><thead><tr><th>Kuryer</th><th>Hudud</th><th class="num">Ochiq</th><th class="num">Yetkazilgan</th><th class="num">Mijoz Ha</th><th class="num">Nizo</th><th class="num">⭐</th><th class="num">Muddat</th><th class="num">Chora</th></tr></thead><tbody>${COURIERS.map(k=>`<tr><td><b>${k.name}</b><small>${k.tg||'—'} · ${k.phone||'—'}</small></td><td>${k.region||'—'}</td><td class="num">${k.open}</td><td class="num">${k.delivered}</td><td class="num">${k.confirmed}</td><td class="num ${k.dispute?'up':''}">${k.dispute}</td><td class="num">${k.rating_avg!=null?`${k.rating_avg} (${k.rating_n||0})`:'—'}</td><td class="num ${k.overdue?'up':''}">${k.overdue}</td><td class="num">${k.sanctions||0}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">Kuryer yoʼq — Xodimlarda yarating</td></tr>'}</tbody></table></div>`,'real · panel-boot')}`;
   const el=$('#c-b1');
   if(el) lineChart(el,{labels:w.labels,series:[{name:'Kelgan',color:'var(--s2)',values:w.in},{name:'Yopilgan',color:'var(--s1)',values:w.out}],endLabels:true});
 };
+function courierSteps(c){
+  const s=[['assigned','Rahbar belgiladi',c.assigned_at],['en_route','Yoʼlda',c.en_route_at],['delivered','Yetkazdi',c.delivered_at]];
+  const order=['assigned','en_route','delivered','done','dispute','unconfirmed'];
+  const idx=order.indexOf(c.status);
+  return `<div class="steps">${s.map((x,i)=>{const done=x[2]&&(idx>i||idx>=3);const now=idx===i;return `<span class="${done?'done':now?'now':''}"><b>${x[1]}</b>${x[2]?dfull(new Date(x[2])):(now?'kutilmoqda':'—')}</span>`;}).join('')}</div>`;
+}
 function flowSVG(){
   const box=(x,y,w,label,color)=>`<rect x="${x}" y="${y}" width="${w}" height="36" rx="8" style="fill:var(--surface-2);stroke:var(--line-2)"/><circle cx="${x+14}" cy="${y+18}" r="4" style="fill:${color}"/><text x="${x+24}" y="${y+22}" style="font-size:12px;fill:var(--ink)">${label}</text>`;
   const arrow=d=>`<path d="${d}" style="fill:none;stroke:var(--ink-3);stroke-width:1.5" marker-end="url(#arr)"/>`;
   const note=(x,y,s)=>`<text x="${x}" y="${y}" style="font-size:10.5px;fill:var(--ink-3)">${s}</text>`;
   return `<svg viewBox="0 0 430 232" width="430" height="232" style="display:block;width:100%;max-width:430px;height:auto" role="img" aria-label="Holatlar oqimi"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--ink-3)"/></marker></defs>
-  ${box(0,2,170,'Yangi','var(--s1)')}${box(0,66,170,'Koʼrib chiqilmoqda','var(--warn)')}${box(0,130,170,'Tasdiqlangan','var(--accent)')}${box(0,194,170,'Almashtirildi','var(--good)')}${box(260,130,150,'Rad etilgan','var(--ink-3)')}
-  ${arrow('M85 38 V62')}${arrow('M85 102 V126')}${arrow('M85 166 V190')}${arrow('M170 84 H335 V126')}
-  ${note(96,56,'servis qabul qildi')}${note(96,120,'brak tasdiqlandi')}${note(96,184,'yangi mahsulot berildi')}${note(196,108,'brak emas / kafolat shartiga kirmaydi')}
+  ${box(0,2,150,'Yangi','var(--s1)')}${box(0,50,150,'Koʼrib chiqilmoqda','var(--warn)')}${box(0,98,150,'Tasdiqlangan','var(--accent)')}${box(0,146,150,'Kuryer / Yoʼlda','var(--s3)')}${box(0,194,150,'Yakunlandi','var(--good)')}${box(260,98,150,'Rad / Nizo','var(--crit)')}
+  ${arrow('M75 38 V48')}${arrow('M75 86 V96')}${arrow('M75 134 V144')}${arrow('M75 182 V192')}${arrow('M150 66 H335 V98')}
+  ${note(180,40,'2 soat · admin')}${note(180,160,'72 soat · kuryer')}${note(196,88,'rad / nizo')}
   </svg>`;
 }
 
@@ -851,65 +877,290 @@ function claimDrawer(c){
   }else{
     tl.push({t:'Kelib tushdi (bot)',d:dfull(c.date),done:true});
   }
-  if(isOpen(c))tl.push({t:'Keyingi qadam: '+(c.status==='new'?'servis qabul qilishi':c.status==='review'?'tekshiruv natijasi':'yangi mahsulotni berish'),d:'kutilmoqda · '+daysOpen(c)+' kun ochiq',now:true});
-  const acts=c.status==='new'?`<button class="btn primary" data-act="review" type="button">Qabul qilish</button>`:c.status==='review'?`<button class="btn primary" data-act="approved" type="button">Brakni tasdiqlash</button><button class="btn danger" data-act="rejected" type="button">Rad etish</button>`:c.status==='approved'?`<button class="btn primary" data-act="replaced" type="button">Almashtirildi deb belgilash</button>`:'';
+  const nextHint={new:'servis qabul qilishi',review:'tasdiqlash yoki rad',approved:'kuryer belgilash',assigned:'kuryer yoʼlga chiqishi',en_route:'yetkazish + foto',delivered:'mijoz tasdigʼi',dispute:'nizo yechimi'}[c.status]||'—';
+  if(isOpen(c))tl.push({t:'Keyingi qadam: '+nextHint,d:'kutilmoqda · '+daysOpen(c)+' kun ochiq',now:true});
+  const courOpts=COURIERS.map(k=>`<option value="${k.id}" ${Number(c.courier_id)===Number(k.id)?'selected':''}>${k.name} — ${k.region} · ochiq ${k.open}</option>`).join('');
+  let acts='';
+  if(c.status==='new') acts=`<button class="btn primary" data-act="accept" type="button">Qabul qilish</button>`;
+  else if(c.status==='review'){
+    const needPhoto=!c.photos_viewed&&(c.photos||0)>0;
+    acts=(needPhoto?'<div class="alert warn" style="width:100%;margin:0 0 8px">Avval yuqoridagi mijoz fotosini bosing (koʼrilgan deb belgilanadi)</div>':'')
+      +`<button class="btn primary" data-act="approve" type="button" ${needPhoto?'disabled':''}>Brakni tasdiqlash</button><button class="btn danger" data-act="reject" type="button">Rad etish</button>`;
+  }
+  else if(c.status==='approved') acts=`<label class="lbl">Kuryer</label><select class="sel" id="dwCour">${courOpts||'<option value="">Kuryer yoʼq — Xodimlarda yarating</option>'}</select><button class="btn primary" data-act="assign" type="button">Kuryerni belgilash</button>`;
+  else if(c.status==='assigned') acts=`${courierSteps(c)}<label class="lbl">Kuryerni almashtirish</label><select class="sel" id="dwCour">${courOpts}</select><button class="btn" data-act="assign" type="button">Qayta belgilash</button>`;
+  else if(c.status==='en_route') acts=`${courierSteps(c)}`;
+  else if(c.status==='delivered') acts=`${courierSteps(c)}${c.delivery_photo?`<div class="photos" style="margin-top:8px"><a class="ph" href="${c.delivery_photo}" target="_blank" rel="noopener">topshirish fotosi</a></div>`:''}<div class="alert warn">Mijoz tasdigʼi kutilmoqda — bot / Mini App</div>`;
+  else if(c.status==='dispute') acts=`<button class="btn primary" data-act="dispute_retry" type="button">Kuryer qayta boradi</button><button class="btn" data-act="dispute_close" type="button">Kelishildi — yopish</button><button class="btn danger" data-act="dispute_sanction" type="button">Kuryerga chora</button>`;
   const urls=Array.isArray(c.photo_urls)?c.photo_urls:[];
   const kaf=c.warranty_ok===false?pill('rejected','Tugagan'):pill('ok','Faol');
   const kafM=c.warranty_months||12;
-  openDrawer(`<div class="dh"><div><h2>${c.id} · ${c.prod}</h2><div style="margin-top:6px">${pill(c.status,STATUS[c.status])} ${isOpen(c)&&daysOpen(c)>7?pill('crit','SLA buzilgan'):''}</div></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
-  <div><h4>Mijoz va xarid</h4><dl class="stat"><dt>Mijoz</dt><dd>${c.cust}</dd><dt>Telefon</dt><dd>${c.ph}</dd><dt>Chek</dt><dd>${c.chek} · ${storeName(c.st)}</dd><dt>Sotuvchi</dt><dd>${c.seller}</dd><dt>Seriya №</dt><dd>${c.sn}</dd><dt>Kafolat</dt><dd>${kaf} ${kafM} oy</dd></dl></div>
-  <div><h4>Soʼrov</h4><dl class="stat"><dt>Sabab</dt><dd>${c.reason}</dd><dt>Mijoz matni</dt><dd style="font-weight:400">«${c.text||'—'}»</dd>${c.rej?`<dt>Rad sababi</dt><dd>${c.rej}</dd>`:''}${c.cost?`<dt>Xarajat</dt><dd>${money(c.cost)}</dd>`:''}</dl></div>
-  <div><h4>Foto / video (${c.photos||urls.length})</h4>${urls.length?`<div class="photo" data-lb-urls='${JSON.stringify(urls).replace(/'/g,"&#39;")}'>${urls.map((u,i)=>`<button type="button" data-lb="${i}" aria-label="foto ${i+1}"><img src="${u}" alt="foto ${i+1}"></button>`).join('')}</div>`:'<div class="hint">Mijoz fayl yubormagan</div>'}</div>
+  const dl=c.deadline?new Date(c.deadline):null;
+  openDrawer(`<div class="dh"><div><h2>${c.id} · ${c.prod}</h2><div style="margin-top:6px">${pill(c.status,STATUS[c.status])} ${isOpen(c)&&daysOpen(c)>7?pill('crit','SLA buzilgan'):''}${c.confirm==='yes'?pill('ok','Mijoz Ha'):c.confirm==='no'?pill('crit','Mijoz Yoʼq'):''}</div></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
+  <div><h4>Mijoz va xarid</h4><dl class="stat"><dt>Mijoz</dt><dd>${c.cust}</dd><dt>Telefon</dt><dd>${c.ph}</dd><dt>Manzil</dt><dd>${c.address||'—'}</dd><dt>Chek</dt><dd>${c.chek} · ${storeName(c.st)}</dd><dt>Sotuvchi</dt><dd>${c.seller}</dd><dt>Kafolat</dt><dd>${kaf} ${kafM} oy</dd></dl></div>
+  <div><h4>Soʼrov</h4><dl class="stat"><dt>Sabab</dt><dd>${c.reason}</dd><dt>Mijoz matni</dt><dd style="font-weight:400">«${c.text||'—'}»</dd><dt>Kuryer</dt><dd>${c.courier||'—'} ${c.courier_phone||''}</dd><dt>Muddat</dt><dd>${dl?dfull(dl):'—'}</dd>${c.rej?`<dt>Rad sababi</dt><dd>${c.rej}</dd>`:''}${c.confirm_reason?`<dt>Nizo sababi</dt><dd>${c.confirm_reason}</dd>`:''}</dl></div>
+  <div><h4>Foto / video (${c.photos||urls.length})</h4>${urls.length?`<div class="photo" data-claim-photos="${c.db_id}" data-lb-urls='${JSON.stringify(urls).replace(/'/g,"&#39;")}'>${urls.map((u,i)=>`<button type="button" data-lb="${i}" aria-label="foto ${i+1}"><img src="${u}" alt="foto ${i+1}"></button>`).join('')}</div>`:'<div class="hint">Mijoz fayl yubormagan</div>'}${c.delivery_photo?`<p class="hint" style="margin-top:8px">Topshirish fotosi:</p><img src="${c.delivery_photo}" alt="delivery" style="max-width:100%;border-radius:8px">`:''}</div>
   <div><h4>Holatlar tarixi</h4><ul class="tl">${tl.map(e=>`<li class="${e.done?'done':''} ${e.now?'now':''}">${e.t}<small>${e.d}</small></li>`).join('')}</ul></div>
-  ${acts?`<div class="actions" data-claim="${c.id}" data-db="${c.db_id||''}">${acts}</div>`:''}`);
+  ${acts?`<div class="actions" style="flex-wrap:wrap" data-claim="${c.id}" data-db="${c.db_id||''}">${acts}</div>`:''}`);
+}
+function mergeClaimRow(row,prev){
+  if(!row) return prev;
+  return {
+    ...prev,
+    ...row,
+    date:row.date?new Date(row.date):(prev&&prev.date),
+    closed:row.closed?new Date(row.closed):(prev&&prev.closed)||undefined,
+    photo_urls:row.photo_urls||(prev&&prev.photo_urls)||[],
+    logs:row.logs||(prev&&prev.logs)||[],
+    photos_viewed:row.photos_viewed!=null?!!row.photos_viewed:!!(prev&&prev.photos_viewed),
+  };
+}
+async function postCourierAction(cid,action,extraFd){
+  if(!cid||cid==='undefined') throw new Error('Soʼrov ID topilmadi — sahifani yangilang');
+  const fd=extraFd||new FormData();
+  if(!fd.has('action')) fd.append('action',action);
+  const r=await fetch('/api/claims/'+cid+'/courier',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-TOKEN':CSRF,'X-Requested-With':'XMLHttpRequest',Accept:'application/json'},body:fd});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){
+    const errMsg=d.message||(d.errors&&Object.values(d.errors).flat()[0])||('HTTP '+r.status);
+    throw new Error(errMsg);
+  }
+  return d;
 }
 $('#drawer').addEventListener('click',async e=>{
+  const lb=e.target.closest('[data-lb]');
+  if(lb){
+    e.preventDefault();
+    const box=lb.closest('[data-claim-photos]');
+    let urls=[];
+    try{urls=JSON.parse(box?.getAttribute('data-lb-urls')||'[]');}catch(_){urls=[];}
+    openLightbox(urls,Number(lb.dataset.lb)||0);
+    const dbId=box&&box.dataset.claimPhotos;
+    if(dbId){
+      try{
+        const res=await api('/api/claims/'+dbId,{method:'PATCH',body:JSON.stringify({action:'photos_viewed'})});
+        const prev=CLAIMS.find(k=>String(k.db_id)===String(dbId));
+        const mapped=mergeClaimRow(res.claim,prev||{});
+        const idx=CLAIMS.findIndex(k=>String(k.db_id)===String(dbId));
+        if(idx>=0) CLAIMS[idx]=mapped; else if(mapped.id) CLAIMS.push(mapped);
+        claimDrawer(mapped);
+      }catch(err){toast(err.message||'Foto koʼrilgan deb saqlanmadi');}
+    }
+    return;
+  }
+  const cact=e.target.closest('[data-cact]');
+  if(cact){
+    const cid=cact.dataset.cid, action=cact.dataset.cact;
+    cact.disabled=true;
+    try{
+      const res=await postCourierAction(cid,action);
+      const prev=CLAIMS.find(k=>String(k.db_id)===String(cid));
+      const mapped=mergeClaimRow(res.claim,prev||{});
+      const idx=CLAIMS.findIndex(k=>String(k.db_id)===String(cid));
+      if(idx>=0) CLAIMS[idx]=mapped;
+      toast((mapped.id||'')+': «'+(STATUS[mapped.status]||mapped.status)+'»');
+      await reloadBoot();
+      claimDrawer(CLAIMS.find(k=>String(k.db_id)===String(cid))||mapped);
+    }catch(err){toast(err.message||'Xato');}
+    finally{cact.disabled=false;}
+    return;
+  }
   const b=e.target.closest('[data-act]');if(!b)return;
   const wrap=b.closest('[data-claim]');
   const id=wrap.dataset.claim;
   const c=CLAIMS.find(k=>k.id===id);if(!c||!c.db_id){toast('Soʼrov topilmadi');return;}
-  const status=b.dataset.act;
-  const body={status};
-  if(status==='rejected'){
-    const reason=await askModal({
-      title:'Rad etish',
-      sub:`${c.id} · ${c.prod}`,
-      label:'Rad sababi',
-      type:'textarea',
-      value:'Tekshiruvda brak tasdiqlanmadi',
-      required:true,
-      okText:'Rad etish',
-    });
+  const action=b.dataset.act;
+  const body={action};
+  if(action==='reject'){
+    const reason=await askModal({title:'Rad etish',sub:`${c.id} · ${c.prod}`,label:'Rad sababi',type:'textarea',value:'Kafolat shartiga kirmaydi',required:true,okText:'Rad etish'});
     if(reason==null) return;
-    body.reject_reason=reason;
-    body.note=reason;
+    body.reject_reason=reason;body.note=reason;
   }
-  if(status==='replaced'){
-    const costStr=await askModal({
-      title:'Almashtirish xarajati',
-      sub:`${c.id} · ${c.prod}`,
-      label:'Almashtirish xarajati (so‘m)',
-      type:'money',
-      value:c.cost?String(Math.round(c.cost*1e6)):'0',
-      required:true,
-      okText:'Tasdiqlash',
-    });
-    if(costStr==null) return;
-    body.replacement_cost=Number(costStr)||0;
+  if(action==='assign'){
+    const sel=$('#dwCour');const cid=sel&&sel.value;if(!cid){toast('Kuryer tanlang');return;}
+    body.courier_id=Number(cid);
+  }
+  if(action==='dispute_close'||action==='dispute_sanction'){
+    const note=await askModal({title:'Izoh',sub:c.id,label:'Izoh',type:'textarea',value:'',required:true,okText:'Saqlash'});
+    if(note==null) return;body.note=note;
   }
   b.disabled=true;
   try{
     const res=await api('/api/claims/'+c.db_id,{method:'PATCH',body:JSON.stringify(body)});
     const row=res.claim||{};
     const mapped={...row,date:row.date?new Date(row.date):c.date,closed:row.closed?new Date(row.closed):undefined};
-    const idx=CLAIMS.findIndex(k=>k.id===id);
-    if(idx>=0) CLAIMS[idx]=mapped; else CLAIMS.unshift(mapped);
-    toast(`${mapped.id}: holat «${STATUS[mapped.status]}» ga oʼzgartirildi`);
+    toast(`${mapped.id}: «${STATUS[mapped.status]}»`);
     await reloadBoot();
     claimDrawer(CLAIMS.find(k=>k.id===id)||mapped);
   }catch(err){toast(err.message||'Saqlashda xato');}
   finally{b.disabled=false;}
 });
+
+RENDER.kuryer=function(root){
+  if(!COURIERS.length){
+    root.innerHTML=card('Kuryer paneli','<div class="empty">Hali kuryer yoʼq. <b>Xodimlar</b> boʼlimida «Kuryer» roli bilan xodim yarating (Telegram ID majburiy — guruh tugmalari uchun).</div>');
+    return;
+  }
+  const au=(window.__BOOT__&&window.__BOOT__.auth_user)||{};
+  const iAmCourier=!!au.is_courier;
+  if(iAmCourier&&au.id){
+    state.cour=Number(au.id);
+  }else if(!state.cour||!COURIERS.some(k=>Number(k.id)===Number(state.cour))){
+    state.cour=COURIERS[0].id;
+  }
+  const me=COURIERS.find(k=>Number(k.id)===Number(state.cour))||COURIERS[0];
+  const mine=CLAIMS.filter(c=>Number(c.courier_id)===Number(me.id));
+  const tabs={new:c=>c.status==='assigned',work:c=>c.status==='en_route',done:c=>['delivered','done','dispute','unconfirmed'].includes(c.status)};
+  const names={new:'Yangi',work:'Jarayonda',done:'Bajarilgan',stats:'Natijalarim'};
+  let body='';
+  const c=state.cSel?CLAIMS.find(x=>x.id===state.cSel):null;
+  const durMs=ms=>{ms=Math.max(0,ms);const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5);if(d)return d+' kun '+h+' soat';if(h)return h+' soat';return Math.floor(ms/6e4)+' daq';};
+  const canAct=iAmCourier&&Number(me.id)===Number(au.id);
+  const inDetail=!!(c&&Number(c.courier_id)===Number(me.id));
+  if(inDetail){
+    const left=c.deadline?new Date(c.deadline)-Date.now():0;
+    const deadCls=left<=0?'crit':left<864e5?'warn':'ok';
+    const tel=isCourierOpen(c)&&c.ph?`<a href="tel:${String(c.ph).replace(/[^\d+]/g,'')}">${c.ph}</a>`:(isCourierOpen(c)?(c.ph||'—'):'yopilgach yashirin');
+    const addr=(c.address&&String(c.address).trim())||'';
+    let dock='';
+    if(canAct&&c.status==='assigned'){
+      dock=`<div class="cd-dock"><div class="alert info" style="margin:0">Mahsulotni ${c.pickup_shop||storeName(c.st)} dan oling</div><button class="btn primary big" data-cact="en_route" data-cid="${c.db_id}" type="button">Yoʼldaman</button></div>`;
+    }else if(canAct&&c.status==='en_route'){
+      dock=`<div class="cd-dock">
+        <div class="alert warn" id="cPhotoNeed" style="margin:0"${c.delivery_photo?' hidden':''}>Yetkazish fotosi majburiy</div>
+        <div id="cPhotoPrev">${c.delivery_photo?`<img class="cd-prev" src="${c.delivery_photo}" alt="">`:''}</div>
+        <div class="big2"><label class="btn big" style="cursor:pointer">Foto olish<input type="file" accept="image/*" capture="environment" id="cPhoto" hidden></label>
+        <button class="btn good big" data-cact="deliver" data-cid="${c.db_id}" type="button" id="cDeliver" ${c.delivery_photo?'':'disabled'}>Yetkazdim</button></div></div>`;
+    }else if(c.status==='delivered') dock=`<div class="cd-dock"><div class="alert warn" style="margin:0">Mijoz tasdigʼi kutilmoqda</div></div>`;
+    else if(c.status==='done') dock=`<div class="cd-dock"><div class="alert ok" style="margin:0">Yakunlandi</div></div>`;
+    else if(c.status==='dispute') dock=`<div class="cd-dock"><div class="alert crit" style="margin:0">Nizo — admin bilan bogʼlaning</div></div>`;
+    const prob=canAct&&isCourierOpen(c)?`<details class="cd-prob"><summary>Muammo bormi?</summary>
+      <select class="sel" id="cProb"><option value="">Sabab…</option><option>Mijoz javob bermayapti</option><option>Manzil notoʼgʼri</option><option>Mahsulot omborda yoʼq</option></select>
+      <div class="actions"><button class="btn" data-cact="problem" data-cid="${c.db_id}" type="button">Adminga xabar</button></div></details>`:'';
+    body=`<div class="cdet">
+      <div class="cd-head"><b>${c.id}</b>${pill(c.status,STATUS[c.status])}</div>
+      ${isCourierOpen(c)&&c.deadline?`<div class="cd-dead ${deadCls}">Muddat ${dfull(new Date(c.deadline))} · ${left>0?durMs(left)+' qoldi':durMs(-left)+' oʼtdi'}</div>`:''}
+      <div class="cd-card"><h4>Mijoz</h4>
+        <div class="cd-row"><span>Ism</span><b>${c.cust||'—'}</b></div>
+        <div class="cd-row"><span>Telefon</span><b>${tel}</b></div>
+        <div class="cd-addr">${addr||'Manzil kiritilmagan'}</div>
+      </div>
+      <div class="cd-card"><h4>Olib borish</h4>
+        <div class="cd-row"><span>Mahsulot</span><b>${c.prod||'—'}</b></div>
+        <div class="cd-row"><span>Dona</span><b>${c.qty||1}</b></div>
+        <div class="cd-row"><span>Qayerdan</span><b>${c.pickup_shop||storeName(c.st)}</b></div>
+        ${(c.photo_urls||[]).length?`<div class="cd-photos">${c.photo_urls.map(u=>`<img src="${u}" alt="">`).join('')}</div>`:''}
+      </div>
+      ${prob}${dock}
+    </div>`;
+  }else if(state.cTab==='stats'){
+    body=`<div class="stiles" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="stile card"><div class="v" style="font-size:22px;font-weight:600">${me.delivered}</div><div class="l hint">Yetkazilgan</div></div><div class="stile card"><div class="v" style="font-size:22px;font-weight:600">${me.confirmed}</div><div class="l hint">Mijoz Ha</div></div><div class="stile card"><div class="v" style="font-size:22px;font-weight:600">${me.dispute}</div><div class="l hint">Nizo</div></div><div class="stile card"><div class="v" style="font-size:22px;font-weight:600">${me.overdue}</div><div class="l hint">Muddat buzilgan</div></div></div><p class="hint" style="margin-top:12px">Faqat oʼz natijalari (real).</p>`;
+  }else{
+    const list=mine.filter(tabs[state.cTab]||(()=>false)).sort((a,b)=>new Date(a.deadline||a.date)-new Date(b.deadline||b.date));
+    body=list.map(x=>{const left=x.deadline?new Date(x.deadline)-Date.now():0;return `<div class="titem" data-csel="${x.id}" style="padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer"><div style="display:flex;justify-content:space-between;gap:8px"><b>${x.id} · ${x.cust.split(' ')[0]}</b>${pill(x.status,STATUS[x.status])}</div><small class="hint">${x.prod} · ${(x.address||'').split(',')[0]||'—'}</small>${isCourierOpen(x)&&x.deadline?`<small class="${left<=0?'up':''}">${left>0?'muddat: '+durMs(left):'muddat oʼtdi'}</small>`:''}</div>`;}).join('')||'<div class="empty">Bu boʼlimda topshiriq yoʼq</div>';
+  }
+  const barLeft=inDetail
+    ? `<button type="button" class="cback" data-cback="1">← Orqaga</button>`
+    : `<b>Salom, ${me.name.split(' ')[0]}</b>`;
+  const barRight=iAmCourier
+    ? `<a href="{{ route('logout') }}" class="cout" onclick="event.preventDefault();document.getElementById('logout-form').submit();">Chiqish</a>`
+    : `<select class="sel" style="width:auto" id="courPick">${COURIERS.map(k=>`<option value="${k.id}" ${Number(k.id)===Number(me.id)?'selected':''}>${k.name}</option>`).join('')}</select>`;
+  const rating=iAmCourier?'':`<div class="side-note" style="flex:1;min-width:240px">${card('Kuryerlar reytingi',`<div class="scroll"><table class="tbl"><thead><tr><th>Kuryer</th><th class="num">Ochiq</th><th class="num">Yetkazilgan</th><th class="num">Ha</th><th class="num">Nizo</th></tr></thead><tbody>${COURIERS.map(k=>`<tr><td><b>${k.name}</b><small>${k.region}</small></td><td class="num">${k.open}</td><td class="num">${k.delivered}</td><td class="num">${k.confirmed}</td><td class="num">${k.dispute}</td></tr>`).join('')}</tbody></table></div>`,'real · panel-boot')}</div>`;
+  root.innerHTML=`<div class="phone-wrap"><div class="phone"><div class="scr"><div class="bar">${barLeft}${barRight}</div><div class="body${inDetail?' cdet-body':''}">${inDetail?'':`<div class="tabs">${Object.keys(names).map(k=>`<button type="button" data-ctab="${k}" aria-pressed="${state.cTab===k}">${names[k]}${k!=='stats'?` (${mine.filter(tabs[k]).length})`:''}</button>`).join('')}</div>`}${body}</div></div></div>${rating}`;
+  const pick=$('#courPick');if(pick) pick.onchange=()=>{state.cour=Number(pick.value);state.cSel=null;render();};
+  root.querySelectorAll('[data-ctab]').forEach(b=>b.onclick=()=>{state.cTab=b.dataset.ctab;state.cSel=null;render();});
+  root.querySelectorAll('[data-csel]').forEach(b=>b.onclick=()=>{state.cSel=b.dataset.csel;render();});
+  const back=root.querySelector('[data-cback]');if(back) back.onclick=()=>{state.cSel=null;render();};
+  const photoInp=root.querySelector('#cPhoto');
+  const deliverBtn=root.querySelector('#cDeliver');
+  const photoPrev=root.querySelector('#cPhotoPrev');
+  const photoNeed=root.querySelector('#cPhotoNeed');
+  if(photoInp){
+    photoInp.onchange=()=>{
+      const f=photoInp.files&&photoInp.files[0];
+      const has=!!(f||(c&&c.delivery_photo));
+      if(deliverBtn) deliverBtn.disabled=!has;
+      if(photoNeed) photoNeed.hidden=has;
+      if(photoPrev){
+        if(f){
+          const url=URL.createObjectURL(f);
+          photoPrev.innerHTML=`<img class="cd-prev" src="${url}" alt="preview">`;
+        }else if(c&&c.delivery_photo){
+          photoPrev.innerHTML=`<img class="cd-prev" src="${c.delivery_photo}" alt="">`;
+        }else{
+          photoPrev.innerHTML='';
+        }
+      }
+    };
+  }
+  root.querySelectorAll('[data-cact]').forEach(btn=>btn.onclick=async()=>{
+    const cid=btn.dataset.cid, action=btn.dataset.cact;
+    const fd=new FormData();fd.append('action',action);
+    if(action==='deliver'){
+      const inp=root.querySelector('#cPhoto');
+      const f=inp&&inp.files&&inp.files[0];
+      if(!f&&!c.delivery_photo){toast('Avval foto oling');return;}
+      if(f) fd.append('photo',f);
+    }
+    if(action==='problem'){
+      const n=root.querySelector('#cProb')?.value;if(!n){toast('Sabab tanlang');return;}fd.append('note',n);
+    }
+    btn.disabled=true;
+    try{
+      const res=await postCourierAction(cid,action,fd);
+      toast((res.claim&&STATUS[res.claim.status])?('«'+STATUS[res.claim.status]+'»'):'Saqlandi');
+      const keep=state.cSel;
+      await reloadBoot();
+      if(action==='en_route'||action==='deliver') state.cSel=keep;
+      if(action==='deliver') state.cSel=null;
+      render();
+    }catch(err){toast(err.message||'Xato');}
+    finally{btn.disabled=false;}
+  });
+};
+
+const NO_REASONS=['Mahsulot olib kelinmadi','Boshqa mahsulot olib kelindi','Nuqsonli mahsulot olib kelindi','Kuryer kelmadi','Boshqa'];
+RENDER.miniapp=function(root){
+  if(!state.mTab) state.mTab='claims';
+  const wait=CLAIMS.filter(c=>c.status==='delivered'&&!c.confirm);
+  const mine=CLAIMS.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const icons={home:'<path d="M2.5 8 8 3l5.5 5M4 7v6h8V7"/>',claims:'<path d="M3 2h10v12H3zM5.5 5h5M5.5 8h5M5.5 11h3"/>',form:'<path d="M8 3v10M3 8h10"/>'};
+  let body='';
+  if(state.mTab==='home'){
+    body=`<p class="hint" style="margin:0 0 8px">Panel koʼrinishi — mijoz Mini Appida cheklar bot orqali keladi (real).</p>
+      <div class="alert info">Tasdiq kutilmoqda: <b>${wait.length}</b> ta. Toʼliq Mini App: <code>/miniapp</code> (Telegram initData).</div>
+      ${wait.map(c=>`<div class="titem" data-msel="${c.id}"><div class="r"><b>${c.id}</b>${pill(c.status,STATUS[c.status])}</div><small>${c.cust} · ${c.prod}</small><small class="amb">Tasdiq kutilmoqda →</small></div>`).join('')||'<div class="empty">Hozir tasdiq kutayotgan soʼrov yoʼq</div>'}`;
+  }else if(state.mTab==='claims'){
+    const c=state.mSel?CLAIMS.find(x=>x.id===state.mSel):null;
+    if(c){
+      const order=['new','review','approved','assigned','en_route','delivered','done'];
+      const labels={new:'Yuborildi',review:'Koʼrib chiqilmoqda',approved:'Tasdiqlandi',assigned:'Kuryer belgilandi',en_route:'Kuryer yoʼlda',delivered:'Kuryer yetkazdi',done:'Yakunlandi'};
+      const reached=s=>(c.logs||[]).some(e=>e.to===s)||c.status===s;
+      body=`<button class="btn" data-mback="1" type="button" style="margin-bottom:10px">← Soʼrovlarim</button>
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:15px">${c.id}</b>${pill(c.status,STATUS[c.status])}</div>
+        <p class="hint" style="margin:0">${c.prod} × ${c.qty||1} · ${c.reason}</p>
+        ${c.status==='rejected'?`<div class="alert warn">Rad: ${c.rej||'—'}</div>`:''}
+        ${c.status==='dispute'?`<div class="alert crit">Nizo: ${c.confirm_reason||'—'}</div>`:''}
+        ${c.courier?`<div class="alert info">Kuryer: <b>${c.courier}</b> ${c.courier_phone||''}</div>`:''}
+        ${c.status==='delivered'&&!c.confirm?`<div class="alert warn">Mijoz Ha/Yoʼq ni botda yoki Telegram Mini App (<code>/miniapp</code>) da beradi — panel faqat kuzatuv.</div>`:''}
+        ${['assigned','en_route','delivered','done','dispute'].includes(c.status)?courierSteps(c):''}
+        <div class="psec"><h4>Holat</h4><ul class="tl">${order.filter(s=>!(s==='done'&&['rejected','dispute','unconfirmed'].includes(c.status))).map(s=>{const ev=(c.logs||[]).find(e=>e.to===s);const r=reached(s);return `<li class="${r?(c.status===s&&s!=='done'?'now':'done'):''}">${labels[s]}<small>${ev&&ev.at?dfull(new Date(ev.at)):(r?'':'—')}</small></li>`;}).join('')}</ul></div>`;
+    }else{
+      body=mine.map(x=>`<div class="titem" data-msel="${x.id}"><div class="r"><b>${x.id}</b>${pill(x.status,STATUS[x.status])}</div><small>${x.cust} · ${x.prod} · ${dfull(x.date)}</small>${x.status==='delivered'&&!x.confirm?'<small class="amb">Tasdiq kutilmoqda →</small>':''}</div>`).join('')||'<div class="empty">Soʼrov yoʼq</div>';
+    }
+  }else{
+    body=`<div class="banner">Yangi soʼrov mijoz Mini Appida yoki bot «Shikoyat» → forma orqali yuboriladi (real <code>/shikoyat/{token}</code>).</div>
+      <p class="hint">Panelda forma yaratilmaydi — mijoz Telegram orqali ochadi. URL: <code>${location.origin}/miniapp</code></p>`;
+  }
+  const short=(mine[0]&&mine[0].cust)||'Mijoz';
+  root.innerHTML=`<div class="phone-wrap"><div class="phone"><div class="scr"><div class="bar"><b>QR Kafolat</b><span class="hint">${short.split(' ')[0]}</span></div><div class="body">${body}</div><div class="pnav">${[['home','Mening uyim'],['claims','Soʼrovlarim'],['form','Yangi soʼrov']].map(([k,l])=>`<button type="button" data-mtab="${k}" aria-current="${state.mTab===k?'page':'false'}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${icons[k]}</svg>${l}</button>`).join('')}</div></div></div>
+  <div class="side-note">${card('Mini App','<p class="hint" style="margin:0">Botdagi web_app tugmasi <code>/miniapp</code> ni ochadi. initData HMAC tekshiriladi — demolarsiz. Soʼrov holati va Ha/Yoʼq tasdiq real claim jadvalidan.</p>')}
+  ${card('Hozir',`<dl class="stat"><dt>Ochiq soʼrovlar</dt><dd>${CLAIMS.filter(isOpen).length}</dd><dt>Tasdiq kutilmoqda</dt><dd class="${wait.length?'amb':''}">${wait.length}</dd></dl>`)}
+  ${card('Bot tasdiq','<p class="hint" style="margin:0">«Yetkazdim» → mijozga Ha/Yoʼq. Javob: done yoki dispute. 24 soat eslatma, 72 soat → unconfirmed.</p>')}</div>`;
+  $$('[data-mtab]').forEach(b=>b.onclick=()=>{state.mTab=b.dataset.mtab;state.mSel=null;render();});
+  $$('[data-msel]').forEach(b=>b.onclick=()=>{state.mSel=b.dataset.msel;state.mTab='claims';render();});
+  $$('[data-mback]').forEach(b=>b.onclick=()=>{state.mSel=null;render();});
+};
 
 function custDrawer(c){
   if(!c) return;
@@ -917,7 +1168,7 @@ function custDrawer(c){
   const buys=Array.isArray(c.buys)?c.buys:[];
   const t1=c.t1!=null?c.t1:'—';
   const t2=c.t2!=null?c.t2:'—';
-  openDrawer(`<div class="dh"><div><h2>${c.n}</h2><div class="hint" style="margin-top:4px">${c.ph} · roʼyxatdan oʼtgan ${c.reg} · ${pill(c.seg==='Uxlagan'?'rejected':c.seg==='Yangi'?'new':'replaced',c.seg)}</div></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
+  openDrawer(`<div class="dh"><div><h2>${c.n}</h2><div class="hint" style="margin-top:4px">${c.ph} · roʼyxatdan oʼtgan ${c.reg} · ${pill(c.seg==='Uxlagan'?'rejected':c.seg==='Yangi'?'new':'done',c.seg)}</div></div><button class="x" type="button" aria-label="Yopish"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 10 10M12 2 2 12"/></svg></button></div>
   <div class="kpis" style="grid-template-columns:1fr 1fr;margin:0">${tile({label:'Xaridlar',value:fmt(c.x)})}${tile({label:'Jami summa',value:money(c.sum)})}</div>
   <div class="card buys-card"><h4>Xaridlar (${c.x})</h4><div class="chek-scroll">${buys.map(b=>{const lines=Array.isArray(b.lines)?b.lines:(String(b.items||'').split(' · ').filter(Boolean).map(t=>({n:t,q:1})));const meta=`${b.d} · ${storeName(b.st)} · ${b.seller||'—'}`;return `<details class="chek"><summary><span class="meta">${meta}</span><span class="sum">${money(b.sum)}</span></summary><div class="body">${lines.map(l=>`<div class="line"><span class="n">${l.n||l}</span><span class="q">×${fmt(Number(l.q)||1,0)}</span></div>`).join('')}</div></details>`;}).join('')}</div></div>
   <div><h4>Bot soʼrovnomalar</h4><dl class="stat"><dt>T1 (7 kun)</dt><dd>${t1}</dd><dt>T2 (30 kun)</dt><dd>${t2}</dd><dt>Marketing roziligi</dt><dd>${c.consent?pill('ok','Bor'):pill('rejected','Yoʼq')}</dd></dl></div>
@@ -1049,6 +1300,7 @@ function applyBoot(boot){
     };
   }
   if(Array.isArray(boot.alerts)) ALERTS=boot.alerts;
+  if(Array.isArray(boot.couriers)){COURIERS=boot.couriers;if(!state.cour&&COURIERS[0])state.cour=COURIERS[0].id;}
   if(boot.brak_threshold!=null) THRESHOLD=parseBrakThreshold(boot.brak_threshold);
   else syncBrakThresholdFromAlerts();
   DAILY=(boot.daily||[]).map(r=>({d:new Date(r.d),cheks:r.cheks,akt:r.akt}));
@@ -1061,6 +1313,12 @@ function applyBoot(boot){
   if(!allowed.some(p=>p.id===state.page)) state.page=(allowed[0]&&allowed[0].id)||'home';
   const au=boot.auth_user||{};
   if(au.shop_locked&&au.shop_id){state.store=String(au.shop_id);}
+  syncCourierUi(au);
+}
+function syncCourierUi(au){
+  const courier=!!(au&&au.is_courier);
+  document.querySelector('.app')?.classList.toggle('courier-ui',courier);
+  if(courier) state.page='kuryer';
 }
 async function reloadBoot(){
   const q=new URLSearchParams({period:state.period});
@@ -1084,10 +1342,10 @@ RENDER.bot=function(root){
   <div style="display:grid;gap:10px;margin-top:14px;max-width:520px">
     <label>Bot token<input class="txt" id="tgToken" placeholder="123456:ABC..." style="width:100%;padding:8px"></label>
     <label>Rahbariyat guruh ID<input class="txt" id="tgMgmt" value="${t.management_group_id||''}" style="width:100%;padding:8px"></label>
-    <label>Servis guruh ID<input class="txt" id="tgSvc" value="${t.service_group_id||''}" style="width:100%;padding:8px"></label>
+    <label>Kuryer guruh ID<input class="txt" id="tgSvc" value="${t.service_group_id||''}" style="width:100%;padding:8px" placeholder="-100…"></label>
     <label>Sotuvchi baholash kechikishi (daqiqa)<input class="txt" id="tgSellerDelay" type="number" min="0" max="10080" step="1" value="${t.seller_rating_delay_minutes??0}" style="width:100%;padding:8px"></label>
   </div>
-  <p style="font-size:12.5px;color:var(--ink-3);margin:10px 0 0;max-width:520px">Localda Cloudflare yoʼq: terminalda <code>php artisan telegram:poll</code> ishlasin — bot va guruhlar shu orqali ishlaydi. «Test xabar» guruhlarga darhol yuboradi. Rahbariyat — hisobotlar; Servis — brak/SLA. Production serverda HTTPS + «Webhook oʼrnatish». Sotuvchi baholash: 0 = darhol.</p>
+  <p style="font-size:12.5px;color:var(--ink-3);margin:10px 0 0;max-width:520px">Localda Cloudflare yoʼq: terminalda <code>php artisan telegram:poll</code> ishlasin. «Test xabar» guruhlarga yuboradi. Rahbariyat — yangi soʼrov/hisobot; Kuryer — faqat kuryer belgilangach (Yoʼldaman / Yetkazdim). Production: HTTPS + webhook. Sotuvchi baholash: 0 = darhol.</p>
   <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">
     <button class="btn primary" type="button" id="tgSave">Saqlash</button>
     <button class="btn" type="button" id="tgSetHook">Webhook oʼrnatish</button>
@@ -1162,7 +1420,7 @@ RENDER.xodimlar=function(root){
     +card('Xodimlar',`
       <div class="staff-actions"><button type="button" class="btn primary" id="empNew">+ Xodim qoʼshish</button></div>
       <div class="scroll"><table class="tbl"><thead><tr><th>Ism</th><th>Login</th><th>Rol</th><th>Doʼkon</th><th>Holat</th><th></th></tr></thead><tbody>
-      ${emps.length?emps.map(e=>`<tr class="${e.is_active?'':'row-off'}"><td><b>${e.name}</b></td><td>${e.login}</td><td>${e.role_name||'—'}</td><td>${e.shop_name||'—'}</td><td>${e.is_active?pill('new','Faol'):pill('rejected','Oʼchiq')}</td><td><button type="button" class="btn" data-emp-edit="${e.id}">Tahrirlash</button> ${e.is_self?'':`<button type="button" class="btn danger" data-emp-del="${e.id}">Oʼchirish</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Hali xodim yoʼq</td></tr>'}
+      ${emps.length?emps.map(e=>`<tr class="${e.is_active?'':'row-off'}"><td><b>${e.name}</b><small>${e.telegram_id?('TG '+e.telegram_id):''}${e.phone?(' · '+e.phone):''}${e.region?(' · '+e.region):''}</small></td><td>${e.login}</td><td>${e.role_name||'—'}</td><td>${e.shop_name||'—'}</td><td>${e.is_active?pill('new','Faol'):pill('rejected','Oʼchiq')}</td><td><button type="button" class="btn" data-emp-edit="${e.id}">Tahrirlash</button> ${e.is_self?'':`<button type="button" class="btn danger" data-emp-del="${e.id}">Oʼchirish</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Hali xodim yoʼq</td></tr>'}
       </tbody></table></div>
       <div id="empFormWrap" ${editEmp||staffUi.empId===0?'':'hidden'}>
         <form class="staff-form" id="empForm">
@@ -1171,6 +1429,9 @@ RENDER.xodimlar=function(root){
           <label>Parol${editEmp?' (boʼsh qoldirilsa oʼzgarmaydi)':''}<input name="password" type="password" ${editEmp?'':'required'} minlength="6" autocomplete="new-password"></label>
           <label>Rol<select name="role_id" required>${roleOpts||'<option value="">Rol yoʼq</option>'}</select></label>
           <label>Doʼkon (menejer uchun — faqat shu doʼkon)<select name="shop_id"><option value="">— barcha / yoʼq —</option>${(STAFF.shops||[]).map(s=>`<option value="${s.id}" ${editEmp&&String(editEmp.shop_id)===String(s.id)?'selected':''}>${s.name}</option>`).join('')}</select></label>
+          <label>Telegram ID (kuryer guruh tugmalari uchun)<input name="telegram_id" value="${editEmp&&editEmp.telegram_id?editEmp.telegram_id:''}" placeholder="masalan: 123456789" inputmode="numeric"></label>
+          <label>Telefon<input name="phone" value="${editEmp&&editEmp.phone?editEmp.phone:''}" placeholder="+998 …"></label>
+          <label>Hudud<input name="region" value="${editEmp&&editEmp.region?editEmp.region:''}" placeholder="Toshkent, Samarqand…"></label>
           <label style="display:flex;align-items:center;gap:8px;flex-direction:row"><input type="checkbox" name="is_active" ${!editEmp||editEmp.is_active?'checked':''}> Faol (kirishi mumkin)</label>
           <div class="staff-actions">
             <button type="submit" class="btn primary">${editEmp?'Saqlash':'Yaratish'}</button>
@@ -1220,6 +1481,9 @@ RENDER.xodimlar=function(root){
       password:String(fd.get('password')||''),
       role_id:Number(fd.get('role_id')),
       shop_id:shopRaw?Number(shopRaw):null,
+      telegram_id:String(fd.get('telegram_id')||'').trim()||null,
+      phone:String(fd.get('phone')||'').trim()||null,
+      region:String(fd.get('region')||'').trim()||null,
       is_active:!!e.target.querySelector('[name=is_active]')?.checked,
     };
     if(editEmp&&!body.password) delete body.password;
@@ -1243,7 +1507,7 @@ RENDER.xodimlar=function(root){
 };
 
 /* ---------- Navigatsiya va filtrlar ---------- */
-const ICONS={home:'<path d="M2.5 8 8 3l5.5 5M4 7v6h8V7"/>',funnel:'<path d="M2 3h12l-4.5 5v4l-3 1.5V8z"/>',users:'<circle cx="5.5" cy="5" r="2.2"/><path d="M2 13c0-2.2 1.6-3.5 3.5-3.5S9 10.8 9 13"/><circle cx="11" cy="5.5" r="1.8"/><path d="M9.8 9.8c2 0 4 1.2 4 3.2"/>',msg:'<path d="M2 3h12v7H6l-3 3v-3H2z"/>',wrench:'<path d="M10.5 2.5a3 3 0 0 0-4 3.8L2.5 10.3 4.7 12.5l4-4a3 3 0 0 0 3.8-4L10.6 6.4 9.3 5.1z"/>',box:'<path d="M2 5 8 2l6 3v6l-6 3-6-3zM2 5l6 3 6-3M8 8v6"/>',star:'<path d="M8 2l1.8 3.8 4.2.6-3 2.9.7 4.2L8 11.5 4.3 13.5l.7-4.2-3-2.9 4.2-.6z"/>',cpu:'<rect x="4" y="4" width="8" height="8" rx="1"/><rect x="6.5" y="6.5" width="3" height="3"/><path d="M6 1.5V4M10 1.5V4M6 12v2.5M10 12v2.5M1.5 6H4M1.5 10H4M12 6h2.5M12 10h2.5"/>',bell:'<path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3"/>',bot:'<path d="M8 1.5a2 2 0 0 1 2 2v1h2.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1H6v-1a2 2 0 0 1 2-2z"/>'};
+const ICONS={home:'<path d="M2.5 8 8 3l5.5 5M4 7v6h8V7"/>',funnel:'<path d="M2 3h12l-4.5 5v4l-3 1.5V8z"/>',users:'<circle cx="5.5" cy="5" r="2.2"/><path d="M2 13c0-2.2 1.6-3.5 3.5-3.5S9 10.8 9 13"/><circle cx="11" cy="5.5" r="1.8"/><path d="M9.8 9.8c2 0 4 1.2 4 3.2"/>',msg:'<path d="M2 3h12v7H6l-3 3v-3H2z"/>',wrench:'<path d="M10.5 2.5a3 3 0 0 0-4 3.8L2.5 10.3 4.7 12.5l4-4a3 3 0 0 0 3.8-4L10.6 6.4 9.3 5.1z"/>',box:'<path d="M2 5 8 2l6 3v6l-6 3-6-3zM2 5l6 3 6-3M8 8v6"/>',star:'<path d="M8 2l1.8 3.8 4.2.6-3 2.9.7 4.2L8 11.5 4.3 13.5l.7-4.2-3-2.9 4.2-.6z"/>',cpu:'<rect x="4" y="4" width="8" height="8" rx="1"/><rect x="6.5" y="6.5" width="3" height="3"/><path d="M6 1.5V4M10 1.5V4M6 12v2.5M10 12v2.5M1.5 6H4M1.5 10H4M12 6h2.5M12 10h2.5"/>',bell:'<path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3"/>',bot:'<path d="M8 1.5a2 2 0 0 1 2 2v1h2.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1H6v-1a2 2 0 0 1 2-2z"/>',truck:'<path d="M1.5 4h9v7h-9zM10.5 7H14l1.5 2.5V11h-5zM4 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>',phone:'<rect x="4" y="1.5" width="8" height="13" rx="1.5"/><path d="M7 12.5h2"/>'};
 const PAGES=[
  {id:'home',t:'Bosh sahifa',sub:'KPI paneli · 8 ta asosiy koʼrsatkich, 6 doʼkon',group:'Asosiy',icon:'home'},
  {id:'sotuv',t:'Sotuv va QR aktivatsiya',sub:'Hisobot 1 · voronka va doʼkonlar kesimi',group:'Hisobotlar',icon:'funnel'},
@@ -1253,6 +1517,8 @@ const PAGES=[
  {id:'sifat',t:'Mahsulot sifati',sub:'Hisobot 5 · mahsulot, brend va yetkazib beruvchi',icon:'box'},
  {id:'sotuvchilar',t:'Sotuvchilar reytingi',sub:'Hisobot 6 · sotuvchi va doʼkon samaradorligi',icon:'star'},
  {id:'tizim',t:'Tizim va sinxron',sub:'Hisobot 7 · Bot xabarlar, Billz sinxron',icon:'cpu'},
+ {id:'kuryer',t:'Kuryer paneli',sub:'Kuryer roli · telefon: topshiriqlar, Yoʼldaman / Yetkazdim, natijalar',group:'Jarayon',icon:'truck',badge:()=>{const id=state.cour||(COURIERS[0]&&COURIERS[0].id);return CLAIMS.filter(c=>c.courier_id===id&&c.status==='assigned').length;}},
+ {id:'miniapp',t:'Mijoz Mini App',sub:'Bot web tab · soʼrov holati va tasdiqlash (real)',icon:'phone',badge:()=>CLAIMS.filter(c=>c.status==='delivered'&&!c.confirm).length},
  {id:'xabarnomalar',t:'Xabarnomalar',sub:'Sozlamalar · Telegram avtomatik xabarlar va ogohlantirishlar',group:'Sozlamalar',icon:'bell'},
  {id:'bot',t:'Telegram bot',sub:'Sozlamalar · token, chat/guruh ID, webhook',icon:'bot'},
  {id:'xodimlar',t:'Xodimlar',sub:'Sozlamalar · rollar, login va boʼlim ruxsatlari',icon:'users'},
@@ -1328,6 +1594,8 @@ $('#fSeller').addEventListener('change',e=>{state.seller=e.target.value;render()
 $('#fCat').addEventListener('change',e=>{state.cat=e.target.value;render();});
 
 function render(){
+  const au=(window.__BOOT__&&window.__BOOT__.auth_user)||{};
+  syncCourierUi(au);
   const allowed=visiblePages();
   if(allowed.length&&!allowed.some(p=>p.id===state.page)) state.page=allowed[0].id;
   const p=state.page;

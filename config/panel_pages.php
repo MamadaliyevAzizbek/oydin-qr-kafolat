@@ -13,6 +13,8 @@ return [
     ['id' => 'sifat', 'label' => 'Mahsulot sifati', 'group' => 'Hisobotlar'],
     ['id' => 'sotuvchilar', 'label' => 'Sotuvchilar reytingi', 'group' => 'Hisobotlar'],
     ['id' => 'tizim', 'label' => 'Tizim va sinxron', 'group' => 'Hisobotlar'],
+    ['id' => 'kuryer', 'label' => 'Kuryer paneli', 'group' => 'Jarayon'],
+    ['id' => 'miniapp', 'label' => 'Mijoz Mini App', 'group' => 'Jarayon'],
     ['id' => 'xabarnomalar', 'label' => 'Xabarnomalar', 'group' => 'Sozlamalar'],
     ['id' => 'bot', 'label' => 'Telegram bot', 'group' => 'Sozlamalar'],
     ['id' => 'xodimlar', 'label' => 'Xodimlar', 'group' => 'Sozlamalar'],

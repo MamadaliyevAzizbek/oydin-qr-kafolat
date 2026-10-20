@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\ClaimController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\ClaimFormController;
+use App\Http\Controllers\CourierMiniAppController;
+use App\Http\Controllers\MiniAppController;
 use App\Http\Controllers\PanelController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Telegram\WebhookController;
@@ -20,6 +22,15 @@ Route::post('/telegram/webhook', WebhookController::class)->name('telegram.webho
 Route::get('/shikoyat/{token}', [ClaimFormController::class, 'show'])->name('claim.form');
 Route::post('/shikoyat/{token}', [ClaimFormController::class, 'store'])->name('claim.store');
 Route::get('/shikoyat/{token}/rahmat', [ClaimFormController::class, 'thanks'])->name('claim.thanks');
+
+Route::get('/miniapp', [MiniAppController::class, 'show'])->name('miniapp');
+Route::post('/miniapp/api/boot', [MiniAppController::class, 'boot'])->name('miniapp.boot');
+Route::post('/miniapp/api/claims', [MiniAppController::class, 'submitClaim'])->name('miniapp.claims.store');
+Route::post('/miniapp/api/claims/{claim}/confirm', [MiniAppController::class, 'confirm'])->name('miniapp.confirm');
+
+Route::get('/courier-app', [CourierMiniAppController::class, 'show'])->name('courier.app');
+Route::post('/courier-app/api/boot', [CourierMiniAppController::class, 'boot'])->name('courier.app.boot');
+Route::post('/courier-app/api/claims/{claim}/action', [CourierMiniAppController::class, 'action'])->name('courier.app.action');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/panel', PanelController::class)->name('panel');
@@ -45,6 +56,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/export', [ReportController::class, 'export']);
 
         Route::patch('/claims/{claim}', [ClaimController::class, 'update']);
+        Route::post('/claims/{claim}/courier', [ClaimController::class, 'courierAction']);
 
         Route::middleware('panel.page:bot')->group(function () {
             Route::get('/settings/telegram', [SettingsController::class, 'telegramShow']);

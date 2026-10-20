@@ -22,8 +22,17 @@ class RoleSeeder extends Seeder
 
         User::query()->where('email', 'service@oydin.uz')->delete();
 
-        // Faqat admin qoladi — boshqa rollarni panelda oʼzingiz yaratasiz
-        Role::query()->where('slug', '!=', 'admin')->delete();
+        Role::query()->updateOrCreate(
+            ['slug' => 'kuryer'],
+            [
+                'name' => 'Kuryer',
+                'pages' => ['kuryer'],
+                'is_system' => true,
+            ]
+        );
+
+        // Demo/eski rollarni olib tashlash — admin va kuryer qoladi
+        Role::query()->whereNotIn('slug', ['admin', 'kuryer'])->where('is_system', false)->delete();
 
         User::query()->where('email', 'admin@oydin.uz')->update([
             'role_id' => $admin->id,

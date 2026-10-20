@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [
             'telegram/webhook',
+            'miniapp/api/*',
+            'courier-app/api/*',
         ]);
         $middleware->alias([
             'panel.page' => \App\Http\Middleware\EnsurePanelPage::class,

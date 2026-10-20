@@ -15,6 +15,7 @@ use App\Models\Seller;
 use App\Models\Shop;
 use App\Models\SurveyMessage;
 use App\Models\SyncLog;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -57,8 +58,8 @@ class PanelBootService
             // Doʼkonda: sotuvdan keyin 30 daqiqa ichida faollashtirilgan cheklar
             $instOrders = $this->inStoreActivatedCount($oids);
             $units = (float) OrderItem::query()->whereIn('order_id', $oids)->sum('quantity');
-            $brakN = Claim::query()->where('shop_id', $shop->id)->whereIn('status', ['approved', 'replaced'])->whereBetween('created_at', [$from, $to])->count();
-            $open = Claim::query()->where('shop_id', $shop->id)->whereNotIn('status', ['rejected', 'replaced'])->count();
+            $brakN = Claim::query()->where('shop_id', $shop->id)->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])->whereBetween('created_at', [$from, $to])->count();
+            $open = Claim::query()->where('shop_id', $shop->id)->whereNotIn('status', Claim::CLOSED)->count();
             $closed = Claim::query()->where('shop_id', $shop->id)->whereNotNull('closed_at')->whereBetween('closed_at', [$from, $to])->get();
             $closeAvg = $closed->count() ? round($closed->avg(fn ($c) => $c->created_at->diffInDays($c->closed_at)), 1) : 0;
 
@@ -100,7 +101,7 @@ class PanelBootService
         $aktOrdersAll = Activation::query()->whereIn('order_id', $allOids)->whereNotNull('order_id')->distinct()->count('order_id');
         $unitsAll = (float) OrderItem::query()->whereIn('order_id', $allOids)->sum('quantity');
         $brakNAll = Claim::query()
-            ->whereIn('status', ['approved', 'replaced'])
+            ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
             ->whereBetween('created_at', [$from, $to])
             ->when($shopId, fn ($q) => $q->where('shop_id', $shopId))
             ->count();
@@ -128,7 +129,7 @@ class PanelBootService
         $sellers = $this->panelSellers($from, $to, $shopId);
 
         $claims = Claim::query()
-            ->with(['customer', 'shop', 'seller', 'product', 'order', 'orderItem', 'assignee', 'botUser', 'logs.user', 'items.orderItem', 'items.product'])
+            ->with(['customer', 'shop', 'seller', 'product', 'order', 'orderItem', 'assignee', 'courier', 'botUser', 'logs.user', 'items.orderItem', 'items.product', 'pickupShop'])
             ->when($shopId, fn ($q) => $q->where('shop_id', $shopId))
             ->latest()
             ->limit(200)
@@ -193,7 +194,7 @@ class PanelBootService
 
         $targetLabels = [
             'management' => 'Rahbariyat guruhi',
-            'service' => 'Servis guruhi',
+            'service' => 'Kuryer guruhi',
             'purchase' => 'Rahbariyat guruhi',
             'admin' => 'Rahbariyat guruhi',
         ];
@@ -222,6 +223,11 @@ class PanelBootService
             'tot' => $tot,
             'sellers' => $sellers,
             'claims' => $claims,
+            'couriers' => $this->couriersPayload(),
+            'sla' => [
+                'courier_hours' => ClaimWorkflowService::courierSlaHours(),
+                'admin_hours' => ClaimWorkflowService::adminSlaHours(),
+            ],
             'customers' => $customers,
             'products' => $products,
             'cats' => $cats,
@@ -298,6 +304,7 @@ class PanelBootService
             'role_id' => $user->role_id,
             'role_name' => $user->panelRole?->name ?? ($user->role ?: '—'),
             'is_admin' => $user->isAdmin(),
+            'is_courier' => $user->isCourier(),
             'shop_id' => $user->shop_id ? (string) $user->shop_id : null,
             'shop_name' => $user->shop?->name,
             'shop_locked' => (bool) $forcedShop,
@@ -596,7 +603,7 @@ class PanelBootService
             ->where(function ($q) use ($prevTo) {
                 $q->whereNull('closed_at')->orWhere('closed_at', '>', $prevTo);
             })
-            ->whereNotIn('status', ['rejected', 'replaced'])
+            ->whereNotIn('status', Claim::CLOSED)
             ->count();
 
         return [
@@ -617,7 +624,7 @@ class PanelBootService
         $cheks = $oids->count();
         $aktOrders = Activation::query()->whereIn('order_id', $oids)->whereNotNull('order_id')->distinct()->count('order_id');
         $units = (float) OrderItem::query()->whereIn('order_id', $oids)->sum('quantity');
-        $brakN = Claim::query()->whereIn('status', ['approved', 'replaced'])->whereBetween('created_at', [$from, $to])->count();
+        $brakN = Claim::query()->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])->whereBetween('created_at', [$from, $to])->count();
         $sent = SurveyMessage::query()->whereBetween('sent_at', [$from, $to])->whereIn('status', ['sent', 'delivered', 'answered'])->count();
         $ans = SurveyMessage::query()->whereBetween('answered_at', [$from, $to])->where('status', 'answered')->count();
         $good = SurveyMessage::query()->whereBetween('answered_at', [$from, $to])->where('answer', 'good')->count();
@@ -663,7 +670,7 @@ class PanelBootService
             // Yopilgan sana (closed_at); bo‘lmasa status yangilangan sana
             $app[] = Claim::query()
                 ->tap($scope)
-                ->whereIn('status', ['approved', 'replaced'])
+                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
                 ->where(function ($q) use ($start, $end) {
                     $q->whereBetween('closed_at', [$start, $end])
                         ->orWhere(function ($q2) use ($start, $end) {
@@ -767,12 +774,12 @@ class PanelBootService
             $req = Claim::query()->whereBetween('created_at', [$from, $to])->where($claimScope)->count();
             $brak = Claim::query()
                 ->whereBetween('created_at', [$from, $to])
-                ->whereIn('status', ['approved', 'replaced'])
+                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
                 ->where($claimScope)
                 ->count();
 
             $costSum = (float) Claim::query()
-                ->where('status', 'replaced')
+                ->where('status', 'done')
                 ->whereNotNull('closed_at')
                 ->whereBetween('closed_at', [$from, $to])
                 ->where($claimScope)
@@ -803,7 +810,7 @@ class PanelBootService
 
             $prevBrak = Claim::query()
                 ->whereBetween('created_at', [$prevFrom, $prevTo])
-                ->whereIn('status', ['approved', 'replaced'])
+                ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
                 ->where($claimScope)
                 ->count();
             $prevRate = $prevSold > 0 ? $prevBrak / $prevSold * 100 : 0.0;
@@ -840,7 +847,7 @@ class PanelBootService
         $received = Claim::query()->tap($scope)->whereBetween('created_at', [$from, $to])->count();
         $confirmed = Claim::query()->tap($scope)
             ->whereBetween('created_at', [$from, $to])
-            ->whereIn('status', ['approved', 'replaced'])
+            ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
             ->count();
         $approvedPct = $received > 0 ? (int) round($confirmed / $received * 100) : 0;
 
@@ -850,16 +857,16 @@ class PanelBootService
             : 0.0;
 
         $sla = Claim::query()->tap($scope)
-            ->whereNotIn('status', ['rejected', 'replaced'])
+            ->whereNotIn('status', Claim::CLOSED)
             ->where(function ($q) {
-                $q->whereNull('closed_at')->orWhereNotIn('status', ['rejected', 'replaced']);
+                $q->whereNull('closed_at')->orWhereNotIn('status', Claim::CLOSED);
             })
             ->get()
             ->filter(fn (Claim $c) => $c->daysOpen() > 7)
             ->count();
 
         $costSum = (float) Claim::query()->tap($scope)
-            ->where('status', 'replaced')
+            ->where('status', 'done')
             ->whereNotNull('closed_at')
             ->whereBetween('closed_at', [$from, $to])
             ->sum('replacement_cost');
@@ -870,7 +877,7 @@ class PanelBootService
         $prevReceived = Claim::query()->tap($scope)->whereBetween('created_at', [$prevFrom, $prevTo])->count();
         $prevConfirmed = Claim::query()->tap($scope)
             ->whereBetween('created_at', [$prevFrom, $prevTo])
-            ->whereIn('status', ['approved', 'replaced'])
+            ->whereIn('status', ['approved', 'done', 'assigned', 'en_route', 'delivered'])
             ->count();
         $prevApprovedPct = $prevReceived > 0 ? (int) round($prevConfirmed / $prevReceived * 100) : 0;
         $prevClosed = Claim::query()->tap($scope)->whereNotNull('closed_at')->whereBetween('closed_at', [$prevFrom, $prevTo])->get();
@@ -882,12 +889,12 @@ class PanelBootService
             ->where(function ($q) use ($prevTo) {
                 $q->whereNull('closed_at')->orWhere('closed_at', '>', $prevTo);
             })
-            ->whereNotIn('status', ['rejected', 'replaced'])
+            ->whereNotIn('status', Claim::CLOSED)
             ->get()
             ->filter(fn (Claim $c) => (int) $c->created_at->diffInDays($prevTo) > 7)
             ->count();
         $prevCost = (float) Claim::query()->tap($scope)
-            ->where('status', 'replaced')
+            ->where('status', 'done')
             ->whereNotNull('closed_at')
             ->whereBetween('closed_at', [$prevFrom, $prevTo])
             ->sum('replacement_cost');
@@ -947,6 +954,7 @@ class PanelBootService
                 ?: trim(($c->botUser?->first_name ?? '').' '.($c->botUser?->last_name ?? ''))
                 ?: '—',
             'cust_id' => $c->customer_id,
+            'bot_user_id' => $c->bot_user_id,
             'ph' => $c->customer?->phone ?? $c->botUser?->phone ?? '—',
             'prod' => $c->productSummary(),
             'prods' => $c->productLabels(),
@@ -962,6 +970,24 @@ class PanelBootService
             'assignee_id' => $c->assignee_id,
             'photos' => count($photos),
             'photo_urls' => $photoUrls,
+            'photos_viewed' => (bool) $c->photos_viewed_at,
+            'address' => $c->address ?? '',
+            'courier_id' => $c->courier_id,
+            'courier' => $c->courier?->name ?? '',
+            'courier_phone' => $c->courier?->phone ?? '',
+            'courier_tg' => $c->courier?->telegram_id ?? '',
+            'deadline' => $c->courier_deadline_at?->toIso8601String(),
+            'assigned_at' => $c->assigned_at?->toIso8601String(),
+            'en_route_at' => $c->en_route_at?->toIso8601String(),
+            'delivered_at' => $c->delivered_at?->toIso8601String(),
+            'delivery_photo' => $c->delivery_photo ? asset('storage/'.$c->delivery_photo) : null,
+            'confirm' => $c->customer_confirm,
+            'courier_rating' => $c->courier_rating,
+            'confirm_reason' => $c->confirm_reason,
+            'qty' => $c->replacement_qty ?: 1,
+            'pickup_shop' => $c->pickupShop?->name ?? $c->shop?->name ?? '—',
+            'pickup_shop_id' => $c->pickup_shop_id,
+            'problem_note' => $c->problem_note,
             'closed' => $c->closed_at?->toIso8601String(),
             'rej' => $c->reject_reason,
             'cost' => $c->replacement_cost ? round((float) $c->replacement_cost / 1_000_000, 3) : null,
@@ -969,6 +995,48 @@ class PanelBootService
             'warranty_ok' => $warrantyActive,
             'logs' => $logs,
         ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function couriersPayload(): array
+    {
+        return User::query()
+            ->with('panelRole')
+            ->where(function ($q) {
+                $q->whereHas('panelRole', fn ($r) => $r->where('slug', 'kuryer'))
+                    ->orWhere('role', 'kuryer');
+            })
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $u) {
+                $mine = Claim::query()->where('courier_id', $u->id);
+                $open = (clone $mine)->whereIn('status', ['assigned', 'en_route'])->count();
+                $delivered = (clone $mine)->whereNotNull('delivered_at')->count();
+                $yes = (clone $mine)->where('customer_confirm', 'yes')->count();
+                $no = (clone $mine)->where('customer_confirm', 'no')->count();
+                $over = (clone $mine)->whereNotNull('courier_sla_overdue_at')->count();
+                $sanctions = (int) Claim::query()->where('courier_id', $u->id)->sum('courier_sanction');
+                $avgRating = (clone $mine)->whereNotNull('courier_rating')->avg('courier_rating');
+                $ratingN = (clone $mine)->whereNotNull('courier_rating')->count();
+
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'phone' => $u->phone ?? '',
+                    'tg' => $u->telegram_id ?? '',
+                    'region' => $u->region ?? '—',
+                    'open' => $open,
+                    'delivered' => $delivered,
+                    'confirmed' => $yes,
+                    'dispute' => $no,
+                    'overdue' => $over,
+                    'sanctions' => $sanctions,
+                    'rating_avg' => $avgRating !== null ? round((float) $avgRating, 1) : null,
+                    'rating_n' => $ratingN,
+                ];
+            })
+            ->all();
     }
 
     protected function botStats(Carbon $from, Carbon $to, int $surveysSent): array
@@ -1070,7 +1138,7 @@ class PanelBootService
             'review' => 'Koʻrib chiqilmoqda',
             'approved' => 'Tasdiqlangan',
             'rejected' => 'Rad etilgan',
-            'replaced' => 'Almashtirildi',
+            'done' => 'Yakunlandi', 'assigned' => 'Kuryer belgilandi', 'en_route' => 'Yoʻlda', 'delivered' => 'Yetkazdi', 'dispute' => 'Nizo', 'unconfirmed' => 'Tasdiqsiz',
         ];
         $jobUz = [
             'sync-sales' => 'Billz sotuvlar sinxroni',

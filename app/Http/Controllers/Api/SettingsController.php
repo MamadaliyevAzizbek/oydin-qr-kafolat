@@ -72,7 +72,7 @@ class SettingsController extends Controller
             } elseif ($action === 'test') {
                 $targets = [
                     'Rahbariyat' => IntegrationSetting::getValue('telegram_management_group_id'),
-                    'Servis' => IntegrationSetting::getValue('telegram_service_group_id'),
+                    'Kuryer' => IntegrationSetting::getValue('telegram_service_group_id'),
                 ];
                 $sent = [];
                 $failed = [];

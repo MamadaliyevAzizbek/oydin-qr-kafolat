@@ -25,6 +25,9 @@ class User extends Authenticatable
         'role',
         'role_id',
         'shop_id',
+        'telegram_id',
+        'phone',
+        'region',
         'is_active',
     ];
 
@@ -92,5 +95,13 @@ class User extends Authenticatable
     public function canAccessPage(string $page): bool
     {
         return in_array($page, $this->allowedPages(), true);
+    }
+
+    public function isCourier(): bool
+    {
+        $this->loadMissing('panelRole');
+
+        return ($this->panelRole?->slug ?? '') === 'kuryer'
+            || ($this->role ?? '') === 'kuryer';
     }
 }

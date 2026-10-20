@@ -7,6 +7,7 @@ use App\Models\Claim;
 use App\Models\IntegrationSetting;
 use App\Models\NotificationRule;
 use App\Models\SurveyMessage;
+use App\Services\ClaimWorkflowService;
 use App\Services\Telegram\TelegramBotService;
 use Illuminate\Support\Facades\Log;
 
@@ -120,7 +121,7 @@ class NotificationService
 
         // 5 kun ochiq — Servisga: vaqt kam qolyapti
         $warning = Claim::query()
-            ->whereNotIn('status', ['rejected', 'replaced'])
+            ->whereNotIn('status', Claim::CLOSED)
             ->where('created_at', '<=', now()->subDays(5))
             ->where('created_at', '>', now()->subDays(7))
             ->whereDoesntHave('logs', fn ($q) => $q->where('note', 'SLA warning'))
@@ -140,7 +141,7 @@ class NotificationService
 
         // 7+ kun — Servis + Rahbariyat (xodimlar ishlamayotgani ko‘rinsin)
         $overdue = Claim::query()
-            ->whereNotIn('status', ['rejected', 'replaced'])
+            ->whereNotIn('status', Claim::CLOSED)
             ->where('created_at', '<=', now()->subDays(7))
             ->whereDoesntHave('logs', fn ($q) => $q->where('note', 'SLA notified'))
             ->limit(20)
@@ -155,6 +156,89 @@ class NotificationService
                 'to_status' => $claim->status,
                 'note' => 'SLA notified',
             ]);
+        }
+
+        $this->checkCourierWorkflowSla();
+    }
+
+    /** TZ v3: admin 2 soat, kuryer 72 soat, mijoz tasdig‘i. */
+    public function checkCourierWorkflowSla(): void
+    {
+        $notify = app(\App\Services\Telegram\ClaimNotifyService::class);
+        $adminHours = ClaimWorkflowService::adminSlaHours();
+        $hour = (int) now()->format('G');
+        $businessHours = $hour >= 9 && $hour < 21;
+
+        if ($businessHours) {
+            $stale = Claim::query()
+                ->where('status', 'new')
+                ->where('created_at', '<=', now()->subHours($adminHours))
+                ->where(function ($q) {
+                    $q->whereNull('admin_sla_notified_at')
+                        ->orWhere('admin_sla_notified_at', '<=', now()->subHours(
+                            max(1, (int) IntegrationSetting::getValue('admin_sla_repeat_hours', 2))
+                        ));
+                })
+                ->limit(30)
+                ->get();
+            foreach ($stale as $claim) {
+                $notify->adminSlaAlert($claim);
+                $claim->update(['admin_sla_notified_at' => now()]);
+            }
+        }
+
+        $near = Claim::query()
+            ->whereIn('status', ['assigned', 'en_route'])
+            ->whereNotNull('courier_deadline_at')
+            ->whereNull('courier_sla_warned_at')
+            ->where('courier_deadline_at', '<=', now()->addHours(24))
+            ->where('courier_deadline_at', '>', now())
+            ->limit(30)
+            ->get();
+        foreach ($near as $claim) {
+            $notify->courierDeadlineWarning($claim);
+            $claim->update(['courier_sla_warned_at' => now()]);
+        }
+
+        $late = Claim::query()
+            ->whereIn('status', ['assigned', 'en_route'])
+            ->whereNotNull('courier_deadline_at')
+            ->whereNull('courier_sla_overdue_at')
+            ->where('courier_deadline_at', '<=', now())
+            ->limit(30)
+            ->get();
+        foreach ($late as $claim) {
+            $notify->courierDeadlineOverdue($claim);
+            $claim->update(['courier_sla_overdue_at' => now()]);
+        }
+
+        $remindH = max(1, (int) IntegrationSetting::getValue('confirm_reminder_hours', 24));
+        $closeH = max($remindH, (int) IntegrationSetting::getValue('confirm_autoclose_hours', 72));
+        $workflow = app(ClaimWorkflowService::class);
+
+        $needRemind = Claim::query()
+            ->where('status', 'delivered')
+            ->whereNull('customer_confirm')
+            ->whereNull('confirm_reminded_at')
+            ->where('delivered_at', '<=', now()->subHours($remindH))
+            ->limit(30)
+            ->get();
+        foreach ($needRemind as $claim) {
+            $notify->confirmReminder($claim);
+            $claim->update(['confirm_reminded_at' => now()]);
+        }
+
+        $autoclose = Claim::query()
+            ->where('status', 'delivered')
+            ->whereNull('customer_confirm')
+            ->where('delivered_at', '<=', now()->subHours($closeH))
+            ->limit(30)
+            ->get();
+        foreach ($autoclose as $claim) {
+            try {
+                $workflow->transition($claim, 'unconfirmed', null, 'system', '72 soat javob yo‘q', [], true, 'system');
+            } catch (\Throwable) {
+            }
         }
     }
 

@@ -169,7 +169,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        $statuses = ['new', 'review', 'approved', 'rejected', 'replaced'];
+        $statuses = ['new', 'review', 'approved', 'assigned', 'done', 'rejected'];
         foreach (range(1, 12) as $i) {
             $order = Order::query()->inRandomOrder()->first();
             $status = $statuses[array_rand($statuses)];
@@ -186,8 +186,8 @@ class DatabaseSeeder extends Seeder
                 'description' => 'Demo brak so\'rovi #'.$i,
                 'status' => $status,
                 'reject_reason' => $status === 'rejected' ? 'Mexanik shikast' : null,
-                'replacement_cost' => $status === 'replaced' ? 120000 : null,
-                'closed_at' => in_array($status, ['rejected', 'replaced'], true) ? now()->subDays(rand(0, 5)) : null,
+                'replacement_cost' => $status === 'done' ? 120000 : null,
+                'closed_at' => in_array($status, ['rejected', 'done', 'unconfirmed'], true) ? now()->subDays(rand(0, 5)) : null,
                 'created_at' => now()->subDays(rand(0, 20)),
             ]);
             ClaimStatusLog::query()->create([

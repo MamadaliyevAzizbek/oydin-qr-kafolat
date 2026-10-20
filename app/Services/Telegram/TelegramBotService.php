@@ -32,7 +32,8 @@ class TelegramBotService
     public function chatId(string $target = 'management'): ?string
     {
         return match ($target) {
-            'service' => IntegrationSetting::getValue('telegram_service_group_id'),
+            // service = Kuryer guruhi (eski kalit nomi saqlanadi)
+            'service', 'courier' => IntegrationSetting::getValue('telegram_service_group_id'),
             default => IntegrationSetting::getValue('telegram_management_group_id'),
         };
     }
@@ -214,7 +215,7 @@ class TelegramBotService
                         ."Guruh ID: <code>{$chatId}</code>\n\n"
                         ."Panel → Telegram bot sozlamalarida:\n"
                         ."• Rahbariyat guruh ID yoki\n"
-                        ."• Servis guruh ID\n"
+                        ."• Kuryer guruh ID\n"
                         ."deb yozing.\n\n"
                         ."Qayta ko‘rish: /chatid"
                     );
@@ -251,7 +252,7 @@ class TelegramBotService
         }
     }
 
-    /** Rahbariyat / Servis guruhlari — faqat /chatid (mijoz menyusi yo‘q). */
+    /** Rahbariyat / Kuryer guruhlari — faqat /chatid (mijoz menyusi yo‘q). */
     protected function handleGroupMessage(array $message, string $chatId, array $chat): void
     {
         $text = trim((string) ($message['text'] ?? ''));
@@ -269,7 +270,7 @@ class TelegramBotService
             ."Chat ID: <code>{$chatId}</code>\n\n"
             ."Shu ID ni panel → <b>Telegram bot</b> da:\n"
             ."• Rahbariyat guruh ID\n"
-            ."• Servis guruh ID\n"
+            ."• Kuryer guruh ID\n"
             ."maydonlariga yozing."
         );
     }
@@ -368,7 +369,7 @@ class TelegramBotService
             return;
         }
 
-        if (in_array($text, ['Shikoyat', '📝 Shikoyat', '/claim'], true)) {
+        if (in_array($text, ['Shikoyat', '📝 Shikoyat', '/claim', '📱 Mini App', 'Mini App'], true)) {
             $this->startClaim($botUser);
 
             return;
@@ -433,12 +434,19 @@ class TelegramBotService
             return ['remove_keyboard' => true];
         }
 
+        // Faqat 2 tugma — ikkalasi ham Mini App ochadi (alohida «Mini App» tugma yo‘q).
+        $https = str_starts_with($this->publicAppBase(), 'https://');
+        $homeBtn = $https
+            ? ['text' => '🏠 Mening uyim', 'web_app' => ['url' => $this->miniAppUrl('home', $botUser)]]
+            : ['text' => '🏠 Mening uyim'];
+        $claimBtn = $https
+            ? ['text' => '📝 Shikoyat', 'web_app' => ['url' => $this->miniAppUrl('form', $botUser)]]
+            : ['text' => '📝 Shikoyat'];
+
         return [
-            'keyboard' => [[
-                ['text' => '🏠 Mening uyim'],
-                ['text' => '📝 Shikoyat'],
-            ]],
+            'keyboard' => [[$homeBtn, $claimBtn]],
             'resize_keyboard' => true,
+            'is_persistent' => true,
         ];
     }
 
@@ -454,31 +462,142 @@ class TelegramBotService
             return;
         }
 
-        $url = $this->claimFormUrl($botUser);
+        $this->openMiniAppGuide(
+            $botUser,
+            "Shikoyatni <b>Mini App</b> orqali yuboring.\nPastdagi tugmani bosing.",
+            'form',
+            '📱 Mini App ochish'
+        );
+    }
+
+    /** Qisqa yo‘l-yo‘riq + Mini App tugmasi (yoki HTTPS yo‘q bo‘lsa forma). */
+    protected function openMiniAppGuide(BotUser $botUser, string $text, string $tab, string $btnLabel): void
+    {
+        $mini = $this->miniAppUrl($tab, $botUser);
+        if (str_starts_with($mini, 'https://')) {
+            $this->sendMessage(
+                $botUser->telegram_id,
+                $text,
+                [
+                    'reply_markup' => [
+                        'inline_keyboard' => [[
+                            ['text' => $btnLabel, 'web_app' => ['url' => $mini]],
+                        ]],
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        $form = $this->claimFormUrl($botUser);
         $this->sendMessage(
             $botUser->telegram_id,
-            "Shikoyatni <b>web forma</b> orqali yuboring.\n"
-            ."Mahsulot, sabab va rasmlarni kiriting — so‘rov sizga bog‘langan holda ochiladi.\n\n"
-            ."Link: {$url}",
+            'Ochish uchun tugmani bosing.',
             [
                 'reply_markup' => [
                     'inline_keyboard' => [[
-                        ['text' => '📝 Shikoyat formasini ochish', 'url' => $url],
+                        ['text' => '📝 Ochish', 'url' => $tab === 'form' ? $form : $mini],
                     ]],
                 ],
             ]
         );
     }
 
-    public function claimFormUrl(BotUser $botUser): string
+    public function publicAppBase(): string
     {
-        $token = $botUser->ensureClaimToken();
-        $base = rtrim(
+        return rtrim(
             (string) (IntegrationSetting::getValue('public_app_url') ?: config('app.url')),
             '/'
         );
+    }
 
-        return $base.'/shikoyat/'.$token;
+    public function miniAppUrl(?string $tab = null, ?BotUser $botUser = null): string
+    {
+        $url = $this->publicAppBase().'/miniapp';
+        $q = [];
+        if ($tab !== null && $tab !== '') {
+            $q['tab'] = $tab;
+        }
+        if ($botUser) {
+            $q['t'] = $botUser->ensureClaimToken();
+        }
+        if ($q !== []) {
+            $url .= '?'.http_build_query($q);
+        }
+
+        return $url;
+    }
+
+    /** Kuryer Mini App (HTTPS) — guruhda url / shaxsiyda web_app. */
+    public function courierAppUrl(int $claimId): string
+    {
+        return $this->publicAppBase().'/courier-app?claim='.$claimId;
+    }
+
+    /**
+     * Guruhda Mini App ochish: t.me/bot?startapp=c{id}
+     * (BotFather’da Mini App URL bo‘lsa to‘liq Mini App; bo‘lmasa HTTPS url).
+     */
+    public function courierAppOpenButton(int $claimId): array
+    {
+        $https = $this->courierAppUrl($claimId);
+        $username = trim((string) IntegrationSetting::getValue('telegram_bot_username', ''));
+        $username = ltrim($username, '@');
+        if ($username === '') {
+            try {
+                $me = $this->getMe();
+                $username = (string) ($me['username'] ?? '');
+                if ($username !== '') {
+                    IntegrationSetting::setValue('telegram_bot_username', $username);
+                }
+            } catch (\Throwable) {
+            }
+        }
+        if ($username !== '') {
+            return [
+                'text' => '📱 Topshiriqni ochish',
+                'url' => 'https://t.me/'.$username.'?startapp=c'.$claimId,
+            ];
+        }
+
+        return [
+            'text' => '📱 Topshiriqni ochish',
+            'url' => $https,
+        ];
+    }
+
+    /** Tayinlangan kuryerga shaxsiy Mini App (web_app — eng ishonchli). */
+    public function notifyCourierPersonalMiniApp(Claim $claim): void
+    {
+        $claim->loadMissing('courier');
+        $tg = trim((string) ($claim->courier?->telegram_id ?? ''));
+        if ($tg === '' || ! $claim->id) {
+            return;
+        }
+        $url = $this->courierAppUrl((int) $claim->id);
+        try {
+            $this->sendMessage(
+                $tg,
+                "📦 Yangi topshiriq: <b>{$claim->number}</b>\nPastdagi tugmadan oching.",
+                [
+                    'reply_markup' => [
+                        'inline_keyboard' => [[
+                            ['text' => '📱 Topshiriqni ochish', 'web_app' => ['url' => $url]],
+                        ]],
+                    ],
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Courier personal miniapp: '.$e->getMessage());
+        }
+    }
+
+    public function claimFormUrl(BotUser $botUser): string
+    {
+        $token = $botUser->ensureClaimToken();
+
+        return $this->publicAppBase().'/shikoyat/'.$token;
     }
 
     public function notifyClaimOpened(Claim $claim): void
@@ -500,7 +619,7 @@ class TelegramBotService
                     ."{$productBlock}\n"
                     ."Sabab: {$reason}"
                     .($photos ? "\nRasmlar: {$photos} ta" : '')
-                    ."\n\nServis tez orada bog‘lanadi. Holat yangilanishi shu botda keladi.",
+                    ."\n\nTez orada ko‘rib chiqiladi. Holat yangilanishi shu botda keladi.",
                     ['reply_markup' => $this->mainKeyboard($claim->botUser)]
                 );
             } catch (\Throwable $e) {
@@ -520,16 +639,13 @@ class TelegramBotService
             .Str::limit((string) $claim->description, 200)."\n"
             ."<a href=\"{$panel}\">Panelni ochish</a>";
 
-        // Servis — ish uchun; Rahbariyat — barcha xabarlar
-        foreach (['service', 'management'] as $target) {
-            $chat = $this->chatId($target);
-            if (! $chat) {
-                continue;
-            }
+        // Yangi so‘rov — faqat Rahbariyat. Kuryer guruhi faqat kuryer belgilangach.
+        $chat = $this->chatId('management');
+        if ($chat) {
             try {
                 $this->sendMessage($chat, $text);
             } catch (\Throwable $e) {
-                Log::warning("Claim notify ({$target}) failed: ".$e->getMessage());
+                Log::warning('Claim notify (management) failed: '.$e->getMessage());
             }
         }
     }
@@ -1108,35 +1224,22 @@ class TelegramBotService
             'last_home_at' => now(),
         ]);
 
-        $items = Activation::query()
-            ->with(['orderItem', 'order'])
-            ->where('bot_user_id', $botUser->id)
-            ->latest('activated_at')
-            ->limit(20)
-            ->get();
-
-        if ($items->isEmpty()) {
-            $this->sendMessage($botUser->telegram_id,
-                "<b>Mening uyim</b> hozircha bo‘sh.\n\nBillz chek rasmini yuboring yoki chek raqamini yozing.",
+        if (! $this->canUseMainMenu($botUser)) {
+            $this->sendMessage(
+                $botUser->telegram_id,
+                'Avval chek yuboring va tasdiqlang.',
                 ['reply_markup' => $this->mainKeyboard($botUser)]
             );
 
             return;
         }
 
-        $lines = ["<b>🏠 Mening uyim</b> — faol kafolatlaringiz\n"];
-        foreach ($items as $a) {
-            $name = $a->orderItem?->name ?? 'Mahsulot';
-            $until = optional($a->warranty_ends_at)->format('d.m.Y') ?? '—';
-            $chek = $a->order?->order_number ?? '';
-            $lines[] = "• <b>{$name}</b>\n  Kafolat: {$until}".($chek ? " · chek {$chek}" : '');
-        }
-        $lines[] = "\nYangi chek qo‘shish: rasm yuboring.\nShikoyat — pastdagi tugma.";
-
-        $this->sendMessage(
-            $botUser->telegram_id,
-            implode("\n", $lines),
-            ['reply_markup' => $this->mainKeyboard($botUser)]
+        // Ro‘yxat Mini Appda — bot faqat yo‘l ko‘rsatadi
+        $this->openMiniAppGuide(
+            $botUser,
+            "Cheklaringiz <b>Mini App</b>da.\nPastdagi tugmani bosing.",
+            'home',
+            '🏠 Mening uyimni ochish'
         );
     }
 
@@ -1169,6 +1272,73 @@ class TelegramBotService
             } catch (\Throwable) {
             }
         };
+
+        $messageId = isset($callback['message']['message_id']) ? (int) $callback['message']['message_id'] : null;
+
+        // Kuryer guruh tugmalari — BotUser bo‘lishi shart emas
+        if (str_starts_with($data, 'cclaim:')) {
+            $parts = explode(':', $data);
+            $claimId = (int) ($parts[1] ?? 0);
+            $action = (string) ($parts[2] ?? '');
+            $claim = Claim::query()->with('courier')->find($claimId);
+            if (! $claim) {
+                $ack('So‘rov topilmadi.', true);
+
+                return;
+            }
+            $res = app(ClaimNotifyService::class)->handleCourierCallback(
+                $claim,
+                $action,
+                $fromId,
+                $messageId,
+                $chatId !== '' ? $chatId : null
+            );
+            $ack($res['message'], ! $res['ok']);
+
+            return;
+        }
+
+        if (str_starts_with($data, 'cconfirm:')) {
+            $parts = explode(':', $data);
+            $claimId = (int) ($parts[1] ?? 0);
+            $answer = (string) ($parts[2] ?? '');
+            $claim = Claim::query()->with('botUser')->find($claimId);
+            if (! $claim) {
+                $ack('So‘rov topilmadi.', true);
+
+                return;
+            }
+            $res = app(ClaimNotifyService::class)->handleCustomerConfirmCallback($claim, $answer, $fromId);
+            $ack($res['message'], ! $res['ok']);
+
+            return;
+        }
+
+        if (str_starts_with($data, 'crate:')) {
+            $parts = explode(':', $data);
+            $claimId = (int) ($parts[1] ?? 0);
+            $stars = (string) ($parts[2] ?? '');
+            $claim = Claim::query()->with(['botUser', 'courier'])->find($claimId);
+            if (! $claim) {
+                $ack('So‘rov topilmadi.', true);
+
+                return;
+            }
+            $res = app(ClaimNotifyService::class)->handleCourierRatingCallback($claim, $stars, $fromId);
+            $ack($res['message'], ! $res['ok']);
+            if ($res['ok'] && $messageId && $chatId !== '') {
+                try {
+                    $this->api('editMessageReplyMarkup', [
+                        'chat_id' => $chatId,
+                        'message_id' => $messageId,
+                        'reply_markup' => json_encode(['inline_keyboard' => []]),
+                    ]);
+                } catch (\Throwable) {
+                }
+            }
+
+            return;
+        }
 
         if (! $botUser) {
             $ack('Foydalanuvchi topilmadi. /start bosing.', true);
