@@ -6,6 +6,7 @@ use App\Models\Activation;
 use App\Models\BotUser;
 use App\Models\Order;
 use App\Models\QrToken;
+use App\Services\Billz\BillzSyncService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -101,6 +102,9 @@ class ReceiptActivationService
     public function findOrderByNumber(string $number): ?Order
     {
         $number = preg_replace('/\D+/', '', $number);
+        if ($number === '') {
+            return null;
+        }
 
         return Order::query()
             ->with(['items', 'shop', 'customer'])
@@ -112,29 +116,91 @@ class ReceiptActivationService
     }
 
     /**
+     * Lokalda yo‘q bo‘lsa — Billz dan oxirgi kunlar sinxroni + qayta qidiruv.
+     */
+    public function findOrImportOrder(string $number): ?Order
+    {
+        $order = $this->findOrderByNumber($number);
+        if ($order) {
+            return $order;
+        }
+
+        try {
+            /** @var BillzSyncService $sync */
+            $sync = app(BillzSyncService::class);
+            if (Order::query()->count() === 0) {
+                $sync->syncShops();
+            }
+            $sync->syncSales(
+                now()->subDays(30)->toDateString(),
+                now()->toDateString(),
+                30
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Billz import on receipt failed: '.$e->getMessage());
+        }
+
+        return $this->findOrderByNumber($number);
+    }
+
+    /**
      * OCR receipt image via OCR.space (no local tesseract required).
+     * Billz cheklari ruscha («Продажа») — avval rus, keyin eng.
      */
     public function ocrImage(string $absolutePath): string
     {
+        $bytes = @file_get_contents($absolutePath);
+        if ($bytes === false || $bytes === '') {
+            Log::warning('OCR: empty image file', ['path' => $absolutePath]);
+
+            return '';
+        }
+
+        foreach (['rus', 'eng'] as $lang) {
+            $text = $this->ocrImageWithLanguage($absolutePath, $bytes, $lang);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
+    }
+
+    protected function ocrImageWithLanguage(string $absolutePath, string $bytes, string $language): string
+    {
         try {
-            $response = Http::timeout(60)
-                ->attach('file', file_get_contents($absolutePath), basename($absolutePath))
+            $response = Http::timeout(90)
+                ->attach('file', $bytes, basename($absolutePath))
                 ->post('https://api.ocr.space/parse/image', [
                     'apikey' => config('services.ocrspace.key', 'helloworld'),
-                    'language' => 'eng',
+                    'language' => $language,
                     'isOverlayRequired' => 'false',
                     'OCREngine' => '2',
                     'scale' => 'true',
+                    'detectOrientation' => 'true',
                 ]);
 
             $json = $response->json() ?? [];
-            if (! empty($json['ParsedResults'][0]['ParsedText'])) {
-                return (string) $json['ParsedResults'][0]['ParsedText'];
+            if (! empty($json['IsErroredOnProcessing'])) {
+                $err = $json['ErrorMessage'] ?? $response->body();
+                if (is_array($err)) {
+                    $err = implode('; ', $err);
+                }
+                Log::warning('OCR API error', ['lang' => $language, 'error' => $err]);
+
+                return '';
             }
 
-            Log::warning('OCR empty', ['body' => $response->body()]);
+            $text = trim((string) ($json['ParsedResults'][0]['ParsedText'] ?? ''));
+            if ($text !== '') {
+                Log::info('OCR ok', ['lang' => $language, 'len' => mb_strlen($text)]);
+
+                return $text;
+            }
+
+            Log::warning('OCR empty', ['lang' => $language, 'body' => mb_substr($response->body(), 0, 500)]);
         } catch (\Throwable $e) {
-            Log::warning('OCR failed: '.$e->getMessage());
+            Log::warning('OCR failed: '.$e->getMessage(), ['lang' => $language]);
         }
 
         return '';

@@ -964,14 +964,29 @@ class TelegramBotService
                 }
             }
 
+            // Lokal bo‘sh / sync kechikkan — Billz dan tortib ko‘ramiz
+            if (! $order) {
+                foreach ($numbers as $num) {
+                    $order = $this->receipts->findOrImportOrder($num);
+                    if ($order) {
+                        $source = $source.'+billz';
+                        break;
+                    }
+                }
+            }
+
             if (! $order) {
                 $botUser->update([
                     'state' => 'awaiting_order_number',
                     'state_data' => ['candidates' => $numbers],
                 ]);
                 $list = implode(', ', array_slice($numbers, 0, 5));
+                $localCount = Order::query()->count();
+                $hint = $localCount === 0
+                    ? "\n\n⚠️ Serverda Billz cheklar hali yuklanmagan. Panel → Billz → Sinxron qiling."
+                    : "\n\nChek raqamini qayta yozing yoki Billz sinxronini kuting.";
                 $this->sendMessage($botUser->telegram_id,
-                    "Topilgan raqamlar ({$source}): <code>{$list}</code>\nLekin Billz bazada chek yo‘q (yoki hali sinxron bo‘lmagan).\nChek raqamini qayta yozing.");
+                    "Topilgan raqamlar ({$source}): <code>{$list}</code>\nLekin Billz bazada chek yo‘q.".$hint);
 
                 return;
             }
@@ -1025,10 +1040,10 @@ class TelegramBotService
         }
 
         $number = preg_replace('/\D+/', '', $text);
-        $order = $this->receipts->findOrderByNumber($number);
+        $order = $this->receipts->findOrImportOrder($number);
         if (! $order) {
             $this->sendMessage($botUser->telegram_id,
-                "Chek <code>{$number}</code> topilmadi.\nRaqamni tekshiring yoki Billz sinxronini kuting.");
+                "Chek <code>{$number}</code> topilmadi.\nRaqamni tekshiring yoki Panel → Billz → Sinxron qiling.");
 
             return;
         }
@@ -1105,7 +1120,7 @@ class TelegramBotService
         if (! $number) {
             return;
         }
-        $order = $this->receipts->findOrderByNumber((string) $number);
+        $order = $this->receipts->findOrImportOrder((string) $number);
         if ($order) {
             $this->finalizeOrderActivation($botUser, $order);
         }
