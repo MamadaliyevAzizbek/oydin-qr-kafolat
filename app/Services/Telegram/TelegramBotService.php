@@ -536,35 +536,77 @@ class TelegramBotService
     }
 
     /**
-     * Guruhda Mini App ochish: t.me/bot?startapp=c{id}
-     * (BotFather’da Mini App URL bo‘lsa to‘liq Mini App; bo‘lmasa HTTPS url).
+     * Guruhda: startapp ko‘pincha BOT_INVALID beradi (Main Mini App sozlanmasa).
+     * Shuning uchun shaxsiy chatga deep-link → u yerda web_app tugmasi.
      */
     public function courierAppOpenButton(int $claimId): array
     {
-        $https = $this->courierAppUrl($claimId);
-        $username = trim((string) IntegrationSetting::getValue('telegram_bot_username', ''));
-        $username = ltrim($username, '@');
-        if ($username === '') {
-            try {
-                $me = $this->getMe();
-                $username = (string) ($me['username'] ?? '');
-                if ($username !== '') {
-                    IntegrationSetting::setValue('telegram_bot_username', $username);
-                }
-            } catch (\Throwable) {
-            }
-        }
+        $username = $this->botUsername();
         if ($username !== '') {
             return [
                 'text' => '📱 Topshiriqni ochish',
-                'url' => 'https://t.me/'.$username.'?startapp=c'.$claimId,
+                'url' => 'https://t.me/'.$username.'?start=courier_'.$claimId,
             ];
         }
+
+        $https = $this->courierAppUrl($claimId);
 
         return [
             'text' => '📱 Topshiriqni ochish',
             'url' => $https,
         ];
+    }
+
+    public function botUsername(): string
+    {
+        $username = trim((string) IntegrationSetting::getValue('telegram_bot_username', ''));
+        $username = ltrim($username, '@');
+        if ($username !== '') {
+            return $username;
+        }
+        try {
+            $me = $this->getMe();
+            $username = ltrim((string) ($me['username'] ?? ''), '@');
+            if ($username !== '') {
+                IntegrationSetting::setValue('telegram_bot_username', $username);
+            }
+        } catch (\Throwable) {
+        }
+
+        return $username;
+    }
+
+    /** /start courier_{id} — kuryerga web_app tugmasi (guruhdan kelganda). */
+    public function offerCourierMiniApp(BotUser $botUser, int $claimId): void
+    {
+        $claim = Claim::query()->find($claimId);
+        if (! $claim) {
+            $this->sendMessage($botUser->telegram_id, 'Topshiriq topilmadi.');
+
+            return;
+        }
+
+        $url = $this->courierAppUrl($claimId);
+        if (! str_starts_with($url, 'https://')) {
+            $this->sendMessage(
+                $botUser->telegram_id,
+                "Mini App uchun HTTPS kerak.\nTopshiriq: <b>{$claim->number}</b>"
+            );
+
+            return;
+        }
+
+        $this->sendMessage(
+            $botUser->telegram_id,
+            "📦 Topshiriq: <b>{$claim->number}</b>\nPastdagi tugmadan Mini Appni oching — barcha amallar u yerda.",
+            [
+                'reply_markup' => [
+                    'inline_keyboard' => [[
+                        ['text' => '📱 Topshiriqni ochish', 'web_app' => ['url' => $url]],
+                    ]],
+                ],
+            ]
+        );
     }
 
     /** Tayinlangan kuryerga shaxsiy Mini App (web_app — eng ishonchli). */
@@ -675,6 +717,13 @@ class TelegramBotService
         if (! $botUser->started_at) {
             $botUser->started_at = now();
             $botUser->save();
+        }
+
+        // Guruhdan: /start courier_{claimId}
+        if ($qrToken && preg_match('/^courier_(\d+)$/i', $qrToken, $m)) {
+            $this->offerCourierMiniApp($botUser, (int) $m[1]);
+
+            return;
         }
 
         if ($qrToken) {

@@ -65,15 +65,15 @@ class ClaimNotifyService
 
         $body = $this->taskBody($claim);
         $open = $this->bot->courierAppOpenButton((int) $claim->id);
-        $btns = [
-            [$open],
-            [['text' => 'Yo‘ldaman', 'callback_data' => "cclaim:{$claim->id}:en_route"]],
-        ];
-        // Faqat Kuryer guruhi — rahbariyatga takroriy xabar kerak emas
-        $this->sendCourierGroup($claim, "📦 <b>Yangi topshiriq</b> · {$claim->number}\n\n".$body, $btns);
-        // Mijoz lokatsiyasi — faqat kuryer guruhiga (va shaxsiy chatga)
+        // Faqat Mini App — Yo‘ldaman / Yetkazdim guruhda yo‘q
+        $btns = [[$open]];
+        $this->sendCourierGroup(
+            $claim,
+            "📦 <b>Yangi topshiriq</b> · {$claim->number}\n\n".$body
+            ."\n\nℹ️ Amallar faqat Mini Appda («Topshiriqni ochish»).",
+            $btns
+        );
         $this->sendClaimLocationToCourier($claim);
-        // Shaxsiy chatda web_app — guruhda url/startapp
         $this->bot->notifyCourierPersonalMiniApp($claim);
     }
 
@@ -88,11 +88,11 @@ class ClaimNotifyService
         );
         $who = $c?->name ?? 'Kuryer';
         $open = $this->bot->courierAppOpenButton((int) $claim->id);
-        $btns = [
-            [$open],
-            [['text' => 'Yetkazdim', 'callback_data' => "cclaim:{$claim->id}:deliver"]],
-        ];
-        $this->sendCourierGroup($claim, "🚚 <b>{$claim->number}</b> · {$who} yo‘lda\nFoto bilan yakunlash — Mini Appda.", $btns);
+        $this->sendCourierGroup(
+            $claim,
+            "🚚 <b>{$claim->number}</b> · {$who} yo‘lda\nFoto bilan yakunlash — Mini Appda.",
+            [[$open]]
+        );
     }
 
     protected function delivered(Claim $claim): void
