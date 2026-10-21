@@ -207,7 +207,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .drawer .claim-item .flat{color:var(--ink-3);font-size:12.5px;font-variant-numeric:tabular-nums}
 .drawer .claim-map{margin-top:8px;border-radius:10px;overflow:hidden;border:1px solid var(--line);height:160px;background:var(--surface-2);position:relative}
 .drawer .claim-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.survey-tpls{display:grid;gap:12px}
+.survey-tpls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.survey-tpls{grid-template-columns:1fr}}
 .survey-tpl{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-2)}
 .survey-tpl-h{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
 .survey-tpl-h b{font-size:13.5px}
@@ -816,7 +817,9 @@ RENDER.sorovnoma=function(root){
   // Real API — sc() (demo masshtab) ishlatilmaydi
   const rows=TOUCH.map(t=>({...t}));
   const k=P().weeks;
-  const tpls=SURVEY_TPL.length?SURVEY_TPL:(window.__BOOT__&&window.__BOOT__.survey_templates)||[];
+  const tplsAll=SURVEY_TPL.length?SURVEY_TPL:(window.__BOOT__&&window.__BOOT__.survey_templates)||[];
+  // Sotuvchi baholash bu yerda koʻrsatilmaydi — faqat T1–T4
+  const tpls=tplsAll.filter(t=>t.id!=='SELLER');
   const escTa=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
   const tplCards=tpls.map(t=>`<div class="survey-tpl" data-sid="${t.id}">
       <div class="survey-tpl-h"><b>${t.label||t.id}</b><small>${t.when||''} · ${t.hint||''}${t.is_custom?' · oʼzgartirilgan':''}</small></div>
