@@ -1465,7 +1465,8 @@ RENDER.xodimlar=function(root){
   const emps=STAFF.employees||[];
   const editRole=roles.find(r=>r.id===staffUi.roleId)||null;
   const editEmp=emps.find(e=>e.id===staffUi.empId)||null;
-  const roleOpts=roles.map(r=>`<option value="${r.id}" ${editEmp&&editEmp.role_id===r.id?'selected':''}>${r.name}</option>`).join('');
+  const roleOpts=roles.map(r=>`<option value="${r.id}" data-slug="${r.slug||''}" ${editEmp&&editEmp.role_id===r.id?'selected':''}>${r.name}</option>`).join('');
+  const isKuryerRole=id=>{const r=roles.find(x=>String(x.id)===String(id));return r&&(r.slug==='kuryer'||/kuryer|courier/i.test(r.name||''));};
   root.innerHTML=
     card('Rollar',`
       <div class="staff-actions"><button type="button" class="btn primary" id="roleNew">+ Rol qoʼshish</button></div>
@@ -1495,11 +1496,13 @@ RENDER.xodimlar=function(root){
           <label>Ism<input name="name" required value="${editEmp?editEmp.name:''}" placeholder="Toʼliq ism"></label>
           <label>Login<input name="login" required value="${editEmp?editEmp.login:''}" placeholder="masalan: umid yoki umid@oydin.uz" autocomplete="off"></label>
           <label>Parol${editEmp?' (boʼsh qoldirilsa oʼzgarmaydi)':''}<input name="password" type="password" ${editEmp?'':'required'} minlength="6" autocomplete="new-password"></label>
-          <label>Rol<select name="role_id" required>${roleOpts||'<option value="">Rol yoʼq</option>'}</select></label>
-          <label>Doʼkon (menejer uchun — faqat shu doʼkon)<select name="shop_id"><option value="">— barcha / yoʼq —</option>${(STAFF.shops||[]).map(s=>`<option value="${s.id}" ${editEmp&&String(editEmp.shop_id)===String(s.id)?'selected':''}>${s.name}</option>`).join('')}</select></label>
-          <label>Telegram ID (kuryer guruh tugmalari uchun)<input name="telegram_id" value="${editEmp&&editEmp.telegram_id?editEmp.telegram_id:''}" placeholder="masalan: 123456789" inputmode="numeric"></label>
-          <label>Telefon<input name="phone" value="${editEmp&&editEmp.phone?editEmp.phone:''}" placeholder="+998 …"></label>
-          <label>Hudud<input name="region" value="${editEmp&&editEmp.region?editEmp.region:''}" placeholder="Toshkent, Samarqand…"></label>
+          <label>Rol<select name="role_id" id="empRole" required>${roleOpts||'<option value="">Rol yoʼq</option>'}</select></label>
+          <label id="empShopWrap">Doʼkon (menejer uchun — faqat shu doʼkon)<select name="shop_id"><option value="">— barcha / yoʼq —</option>${(STAFF.shops||[]).map(s=>`<option value="${s.id}" ${editEmp&&String(editEmp.shop_id)===String(s.id)?'selected':''}>${s.name}</option>`).join('')}</select></label>
+          <div id="empCourierFields">
+            <label>Telegram ID (kuryer Mini App / guruh uchun)<input name="telegram_id" value="${editEmp&&editEmp.telegram_id?editEmp.telegram_id:''}" placeholder="masalan: 123456789" inputmode="numeric"></label>
+            <label>Telefon<input name="phone" value="${editEmp&&editEmp.phone?editEmp.phone:''}" placeholder="+998 …"></label>
+            <label>Hudud <span class="hint" style="font-weight:400;text-transform:none;letter-spacing:0">(kuryer ishlaydigan shahar — tayinlashda koʼrinadi)</span><input name="region" value="${editEmp&&editEmp.region?editEmp.region:''}" placeholder="Toshkent, Samarqand…"></label>
+          </div>
           <label style="display:flex;align-items:center;gap:8px;flex-direction:row"><input type="checkbox" name="is_active" ${!editEmp||editEmp.is_active?'checked':''}> Faol (kirishi mumkin)</label>
           <div class="staff-actions">
             <button type="submit" class="btn primary">${editEmp?'Saqlash':'Yaratish'}</button>
@@ -1532,6 +1535,16 @@ RENDER.xodimlar=function(root){
     }catch(err){toast(err.message);}
   });
 
+  const syncEmpRoleFields=()=>{
+    const roleSel=$('#empRole');
+    const kur=roleSel?isKuryerRole(roleSel.value):false;
+    const shopW=$('#empShopWrap');
+    const courW=$('#empCourierFields');
+    if(shopW) shopW.hidden=!!kur;
+    if(courW) courW.hidden=!kur;
+  };
+  syncEmpRoleFields();
+  $('#empRole')?.addEventListener('change',syncEmpRoleFields);
   $('#empNew').onclick=()=>{staffUi.empId=0;render();};
   $('#empCancel')?.addEventListener('click',()=>{hideEmpForm();render();});
   $$('[data-emp-edit]').forEach(b=>b.onclick=()=>{staffUi.empId=Number(b.dataset.empEdit);render();});
@@ -1542,16 +1555,18 @@ RENDER.xodimlar=function(root){
   $('#empForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
     const fd=new FormData(e.target);
-    const shopRaw=String(fd.get('shop_id')||'').trim();
+    const roleId=Number(fd.get('role_id'));
+    const kur=isKuryerRole(roleId);
+    const shopRaw=kur?'':String(fd.get('shop_id')||'').trim();
     const body={
       name:String(fd.get('name')||'').trim(),
       login:String(fd.get('login')||'').trim(),
       password:String(fd.get('password')||''),
-      role_id:Number(fd.get('role_id')),
+      role_id:roleId,
       shop_id:shopRaw?Number(shopRaw):null,
-      telegram_id:String(fd.get('telegram_id')||'').trim()||null,
-      phone:String(fd.get('phone')||'').trim()||null,
-      region:String(fd.get('region')||'').trim()||null,
+      telegram_id:kur?(String(fd.get('telegram_id')||'').trim()||null):null,
+      phone:kur?(String(fd.get('phone')||'').trim()||null):null,
+      region:kur?(String(fd.get('region')||'').trim()||null):null,
       is_active:!!e.target.querySelector('[name=is_active]')?.checked,
     };
     if(editEmp&&!body.password) delete body.password;
