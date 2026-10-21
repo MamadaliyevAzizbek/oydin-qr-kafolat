@@ -275,6 +275,7 @@ class PanelBootService
             'claim_stats' => $this->claimStats($from, $to, $periodDays, $shopId),
             'brak_threshold' => $this->brakThresholdPct(),
             'survey_weeks' => $this->surveyWeeks(12),
+            'survey_templates' => app(\App\Services\SurveyTemplateService::class)->allForPanel(),
             'auth_user' => $this->authUserPayload(),
             'sync_errors' => Order::query()->with('shop')
                 ->where('sync_error', true)

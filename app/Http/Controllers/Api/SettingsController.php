@@ -7,6 +7,7 @@ use App\Models\IntegrationSetting;
 use App\Models\NotificationRule;
 use App\Services\Billz\BillzClient;
 use App\Services\Billz\BillzSyncService;
+use App\Services\SurveyTemplateService;
 use App\Services\Telegram\TelegramBotService;
 use Illuminate\Http\Request;
 
@@ -184,6 +185,32 @@ class SettingsController extends Controller
         }
 
         return response()->json(['ok' => true, 'logs' => $logs]);
+    }
+
+    public function surveyTemplates(SurveyTemplateService $templates)
+    {
+        return response()->json([
+            'templates' => $templates->allForPanel(),
+        ]);
+    }
+
+    public function surveyTemplatesSave(Request $request, SurveyTemplateService $templates)
+    {
+        $data = $request->validate([
+            'templates' => 'required|array',
+            'templates.*.id' => 'required|string|in:T1,T2,T3,T4,SELLER',
+            'templates.*.text' => 'required|string|max:4000',
+        ]);
+
+        $map = [];
+        foreach ($data['templates'] as $row) {
+            $map[$row['id']] = $row['text'];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'templates' => $templates->saveMany($map),
+        ]);
     }
 
     public function notifications()

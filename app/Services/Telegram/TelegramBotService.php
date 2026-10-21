@@ -1507,16 +1507,18 @@ class TelegramBotService
             return $this->sendSellerRatingSurvey($survey, $botUser);
         }
 
-        $stageLabel = match ($survey->stage) {
-            'T1' => '7 kun',
-            'T2' => '30 kun',
-            'T3' => '90 kun',
-            'T4' => 'kafolat tugashi',
-            default => $survey->stage,
-        };
+        $survey->loadMissing(['order.shop', 'order.items', 'activation.orderItem']);
+        $order = $survey->order;
+        $tpl = app(\App\Services\SurveyTemplateService::class);
+        $text = $tpl->render((string) $survey->stage, [
+            'chek' => $order?->order_number ?? '—',
+            'shop' => $order?->shop?->name ?? '—',
+            'product' => $survey->activation?->orderItem?->name
+                ?? ($order?->items?->first()?->name ?? 'Mahsulot'),
+        ]);
 
         try {
-            $result = $this->sendMessage($botUser->telegram_id, "So'rovnoma ({$stageLabel}): mahsulotdan qoniqdingizmi?", [
+            $result = $this->sendMessage($botUser->telegram_id, $text, [
                 'reply_markup' => [
                     'inline_keyboard' => [[
                         ['text' => 'Yaxshi', 'callback_data' => "survey:{$survey->id}:good"],
@@ -1541,17 +1543,19 @@ class TelegramBotService
 
     protected function sendSellerRatingSurvey(SurveyMessage $survey, BotUser $botUser): bool
     {
-        $survey->loadMissing(['order.seller', 'order.shop']);
+        $survey->loadMissing(['order.seller', 'order.shop', 'order.items', 'activation.orderItem']);
         $order = $survey->order;
         $seller = $order?->seller?->name;
         $shop = $order?->shop?->name ?? '—';
         $chek = $order?->order_number ?? '—';
-
-        $text = "⭐ <b>Sotuvchi xizmatini baholang</b>\n\n"
-            ."Chek: <b>{$chek}</b>\n"
-            ."Do‘kon: {$shop}\n"
-            .($seller ? "Sotuvchi: <b>{$seller}</b>\n" : '')
-            ."\nXizmat sifatini 1–5 ball bilan belgilang.";
+        $tpl = app(\App\Services\SurveyTemplateService::class);
+        $text = $tpl->render('SELLER', [
+            'chek' => $chek,
+            'shop' => $shop,
+            'seller' => $seller ?: '—',
+            'product' => $survey->activation?->orderItem?->name
+                ?? ($order?->items?->first()?->name ?? 'Mahsulot'),
+        ]);
 
         $row = [];
         for ($i = 1; $i <= 5; $i++) {

@@ -207,6 +207,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .drawer .claim-item .flat{color:var(--ink-3);font-size:12.5px;font-variant-numeric:tabular-nums}
 .drawer .claim-map{margin-top:8px;border-radius:10px;overflow:hidden;border:1px solid var(--line);height:160px;background:var(--surface-2);position:relative}
 .drawer .claim-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.survey-tpls{display:grid;gap:12px}
+.survey-tpl{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-2)}
+.survey-tpl-h{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.survey-tpl-h b{font-size:13.5px}
+.survey-tpl-h small{color:var(--ink-3);font-size:12px}
+.survey-tpl-ta{width:100%;min-height:88px;resize:vertical;font:inherit;font-size:13.5px;line-height:1.45;padding:10px 12px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);color:var(--ink)}
+.survey-tpl-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.survey-tpl-meta .hint{margin:0;font-size:11.5px;color:var(--ink-3)}
 .chek{border:1px solid var(--line);border-radius:8px;background:var(--surface-2);overflow:hidden}
 .chek>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;user-select:none}
 .chek>summary::-webkit-details-marker{display:none}
@@ -803,13 +811,25 @@ RENDER.mijozlar=function(root){
   const inp=$('#custSearch');inp.addEventListener('input',()=>{state.search=inp.value;const pos=inp.selectionStart;RENDER.mijozlar(root);const n=$('#custSearch');n.focus();n.setSelectionRange(pos,pos);});
 };
 
+let SURVEY_TPL=[];
 RENDER.sorovnoma=function(root){
   // Real API — sc() (demo masshtab) ishlatilmaydi
   const rows=TOUCH.map(t=>({...t}));
   const k=P().weeks;
+  const tpls=SURVEY_TPL.length?SURVEY_TPL:(window.__BOOT__&&window.__BOOT__.survey_templates)||[];
+  const escTa=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const tplCards=tpls.map(t=>`<div class="survey-tpl" data-sid="${t.id}">
+      <div class="survey-tpl-h"><b>${t.label||t.id}</b><small>${t.when||''} · ${t.hint||''}${t.is_custom?' · oʼzgartirilgan':''}</small></div>
+      <textarea class="survey-tpl-ta" id="stpl_${t.id}" rows="4" maxlength="4000" aria-label="${t.label||t.id}">${escTa(t.text||t.default||'')}</textarea>
+      <div class="survey-tpl-meta"><span class="hint">Oʼrinbosarlar: ${(t.placeholders||[]).join(' ')}</span>
+        <button type="button" class="btn" data-stpl-reset="${t.id}">Standart</button></div>
+    </div>`).join('')||'<div class="empty">Shablonlar yuklanmadi</div>';
   root.innerHTML=`${card('Bosqichlar kesimida',`<div class="scroll"><table class="tbl"><thead><tr><th>Bosqich</th><th>Qachon</th><th class="num">Yuborildi</th><th class="num">Yetkazildi</th><th class="num">Javob berildi</th><th class="num">«Yaxshi»</th><th class="num">«Muammo bor»</th><th class="num">Soʼrovga aylandi</th><th class="num">Oʼrtacha javob vaqti</th></tr></thead><tbody>
   ${rows.map(t=>`<tr><td><b>${t.t}</b><small>${t.q}</small></td><td>${t.when}</td><td class="num">${fmt(t.sent||0)}</td><td class="num">${fmt(t.dlv||0)}<small>${pct((t.dlv||0)/Math.max(1,t.sent||0)*100)}</small></td><td class="num">${fmt(t.ans||0)}<small>${pct((t.ans||0)/Math.max(1,t.dlv||0)*100)}</small></td><td class="num">${fmt(t.good||0)}<small>${pct((t.good||0)/Math.max(1,t.ans||0)*100)}</small></td><td class="num">${fmt(t.bad||0)}<small class="${(t.ans||0)&&((t.bad||0)/(t.ans||1)>0.1)?'up':''}">${pct((t.bad||0)/Math.max(1,t.ans||0)*100)}</small></td><td class="num">${fmt(t.claims||0)}</td><td class="num">${fmt(t.hrs||0,1)} soat</td></tr>`).join('')}
   </tbody></table></div>`,'muddatlar sozlamalarda oʼzgartiriladi')}
+  ${card('Bosqich xabarlari (botga yuboriladigan matn)',`<div class="survey-tpls">${tplCards}</div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="stplSave">Saqlash</button></div>
+    <p class="hint" style="margin:8px 0 0">HTML teglar mumkin (<code>&lt;b&gt;</code>). Tugmalar (Yaxshi / Muammo bor yoki 1–5⭐) oʼzgarmaydi — faqat matn.</p>`,'har bosqich alohida · real saqlanadi')}
   <div class="grid c21">
     ${card('Qoniqish darajasi, haftalar boʼyicha','<div id="c-q1"></div>','«yaxshi» javoblar ulushi, %')}
     ${card('Mijoz izohlari',`<div class="list">${COMMENTS.map(c=>`<div class="item ${/muammo|oʼchdi|miltilla|isib|shovqin/i.test(c.t)?'warn':''}" style="grid-template-columns:4px 1fr"><span class="stripe" style="${/zoʼr|tavsiya/i.test(c.t)?'background:var(--good)':''}"></span><div class="t"><b>${c.t}</b><small>${c.c} · ${c.p} · ${c.d}</small></div></div>`).join('')}</div>`,'servis boʼlimi oʼqib chiqadi')}
@@ -820,6 +840,28 @@ RENDER.sorovnoma=function(root){
     const mx=Math.max(0,...v1,...v2,...v3);
     lineChart($('#c-q1'),{labels,series:[{name:'T1 (7 kun)',color:'var(--s1)',values:v1},{name:'T2 (30 kun)',color:'var(--s2)',values:v2},{name:'T3 (90 kun)',color:'var(--s3)',values:v3}],yMin:mx>0&&mx<80?0: (mx?80:0),yMax:100,fmt:v=>fmt(v,0)+' %',endLabels:true});
   }
+  root.querySelectorAll('[data-stpl-reset]').forEach(btn=>{
+    btn.onclick=()=>{
+      const id=btn.dataset.stplReset;
+      const t=(SURVEY_TPL.find(x=>x.id===id)||tpls.find(x=>x.id===id));
+      const ta=root.querySelector('#stpl_'+id);
+      if(ta&&t) ta.value=t.default||'';
+    };
+  });
+  root.querySelector('#stplSave')?.addEventListener('click',async()=>{
+    const templates=tpls.map(t=>{
+      const ta=root.querySelector('#stpl_'+t.id);
+      return {id:t.id,text:(ta?.value||t.text||'').trim()};
+    }).filter(t=>t.text);
+    if(!templates.length){toast('Matn boʼsh');return;}
+    try{
+      const r=await api('/api/settings/survey-templates',{method:'POST',body:JSON.stringify({templates})});
+      SURVEY_TPL=r.templates||templates;
+      if(window.__BOOT__) window.__BOOT__.survey_templates=SURVEY_TPL;
+      toast('Saqlandi');
+      RENDER.sorovnoma(root);
+    }catch(e){toast(e.message||'Saqlanmadi');}
+  });
 };
 
 RENDER.brak=function(root){
@@ -1313,6 +1355,7 @@ function applyBoot(boot){
   if(Array.isArray(boot.cats)&&boot.cats.length) CATS=boot.cats;
   if(Array.isArray(boot.touch)&&boot.touch.length) TOUCH=boot.touch;
   if(Array.isArray(boot.comments)) COMMENTS=boot.comments;
+  if(Array.isArray(boot.survey_templates)) SURVEY_TPL=boot.survey_templates;
   if(boot.survey_weeks){
     if(Array.isArray(boot.survey_weeks.labels)) WEEKS=boot.survey_weeks.labels;
     W_SAT={

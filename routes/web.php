@@ -76,6 +76,11 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/settings/notifications', [SettingsController::class, 'notificationsSave']);
         });
 
+        Route::middleware('panel.page:sorovnoma')->group(function () {
+            Route::get('/settings/survey-templates', [SettingsController::class, 'surveyTemplates']);
+            Route::post('/settings/survey-templates', [SettingsController::class, 'surveyTemplatesSave']);
+        });
+
         Route::middleware('panel.page:xodimlar')->prefix('staff')->group(function () {
             Route::get('/', [\App\Http\Controllers\Api\StaffController::class, 'index']);
             Route::post('/roles', [\App\Http\Controllers\Api\StaffController::class, 'storeRole']);
