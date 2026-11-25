@@ -197,14 +197,14 @@ class SettingsController extends Controller
     public function surveyTemplatesSave(Request $request, SurveyTemplateService $templates)
     {
         $data = $request->validate([
-            'templates' => 'required|array',
+            'templates' => 'required|array|min:1',
             'templates.*.id' => 'required|string|in:T1,T2,T3,T4,SELLER',
-            'templates.*.text' => 'required|string|max:4000',
+            'templates.*.text' => 'nullable|string|max:4000',
         ]);
 
         $map = [];
         foreach ($data['templates'] as $row) {
-            $map[$row['id']] = $row['text'];
+            $map[$row['id']] = (string) ($row['text'] ?? '');
         }
 
         return response()->json([

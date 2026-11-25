@@ -854,16 +854,18 @@ RENDER.sorovnoma=function(root){
   root.querySelector('#stplSave')?.addEventListener('click',async()=>{
     const templates=tpls.map(t=>{
       const ta=root.querySelector('#stpl_'+t.id);
-      return {id:t.id,text:(ta?.value||t.text||'').trim()};
-    }).filter(t=>t.text);
-    if(!templates.length){toast('Matn boʼsh');return;}
+      return {id:t.id,text:(ta?.value??t.text??'').trim()};
+    });
+    if(!templates.length){toast('Shablon yoʼq');return;}
+    const btn=root.querySelector('#stplSave');
+    if(btn){btn.disabled=true;btn.textContent='…';}
     try{
       const r=await api('/api/settings/survey-templates',{method:'POST',body:JSON.stringify({templates})});
       SURVEY_TPL=r.templates||templates;
       if(window.__BOOT__) window.__BOOT__.survey_templates=SURVEY_TPL;
       toast('Saqlandi');
       RENDER.sorovnoma(root);
-    }catch(e){toast(e.message||'Saqlanmadi');}
+    }catch(e){toast(e.message||'Saqlanmadi');if(btn){btn.disabled=false;btn.textContent='Saqlash';}}
   });
 };
 
@@ -1331,7 +1333,10 @@ const CSRF=document.querySelector('meta[name="csrf-token"]')?.content||'';
 async function api(path,opts={}){
   const res=await fetch(path,{headers:{Accept:'application/json','X-CSRF-TOKEN':CSRF,'X-Requested-With':'XMLHttpRequest',...(opts.body?{'Content-Type':'application/json'}:{})},...opts});
   const data=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.message||'API xato');
+  if(!res.ok){
+    const fromErr=data.errors&&Object.values(data.errors).flat()[0];
+    throw new Error(fromErr||data.message||('API xato ('+res.status+')'));
+  }
   return data;
 }
 function applyBoot(boot){
